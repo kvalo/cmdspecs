@@ -1,3 +1,5 @@
 *.py[co]
-/cmdspecs.1
 /build
+/cmdspecs.1
+/cmdspecs.egg-info
+/dist
