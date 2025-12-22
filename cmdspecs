@@ -26,7 +26,7 @@ import tempfile
 import time
 import unittest
 
-import cmdtestlib
+import cmdspecslib
 
 
 ALL_TESTS = ''
@@ -68,7 +68,7 @@ class CommandTester:
     def run(self, argv=None):
         self.parser = argparse.ArgumentParser(
             description='blackbox testing of Unix command line tools',
-            prog='cmdtest'
+            prog='cmdspecs'
         )
         self.parser.add_argument('-c', '--command',
                                help='ignored for backwards compatibility')
@@ -142,7 +142,7 @@ class CommandTester:
         self.ts = SimpleTerminalStatus(td.tests)
         
     def load_tests(self, dirnames):
-        td = cmdtestlib.TestDir()
+        td = cmdspecslib.TestDir()
         for dirname in dirnames:
             if self.settings['test']:
                 filenames = self.find_requested_tests(dirname)
@@ -239,7 +239,7 @@ class CommandTester:
         if stderr_diff:
             errors.append(TestFailure(test, 'stderr diff:\n%s' % stderr_diff))
 
-        contents = cmdtestlib.cat(test.exit or '/dev/null')
+        contents = cmdspecslib.cat(test.exit or '/dev/null')
         expected_exit = int(contents.strip() or '0')
         if exit_code != expected_exit:
             errors.append(TestFailure(test, 

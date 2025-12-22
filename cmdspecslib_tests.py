@@ -19,7 +19,7 @@ import shutil
 import tempfile
 import unittest
 
-from cmdtestlib import TestDir, cat
+from cmdspecslib import TestDir, cat
 
 
 class TestDirTests(unittest.TestCase):

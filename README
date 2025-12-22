@@ -1,13 +1,13 @@
-README for cmdtest
-==================
+README for cmdspecs
+===================
 
-This project provides `cmdtest`, a black box testing tool for Unix
+This project provides `cmdspecs`, a black box testing tool for Unix
 command line tools.
 
-cmdtest
--------
+cmdspecs
+--------
 
-`cmdtest` black box tests Unix command line tools.
+`cmdspecs` black box tests Unix command line tools.
 Given some test scripts, their inputs, and expected outputs,
 it verifies that the command line produces the expected output.
 If not, it reports problems, and shows the differences.

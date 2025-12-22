@@ -13,12 +13,12 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with this program.  If not, see <http://www.gnu.org/licenses/>.
 .\"
-.TH CMDTEST 1
+.TH CMDSPECS 1
 .SH NAME
-cmdtest \- blackbox testing of Unix command line tools
+cmdspecs \- blackbox testing of Unix command line tools
 .SH SYNOPSIS
 .SH DESCRIPTION
-.B cmdtest 
+.B cmdspecs
 black box tests Unix command line tools.
 Given some test scripts, their inputs, and expected outputs,
 it verifies that the command line produces the expected output.
@@ -64,7 +64,7 @@ a shell script to run after each test
 .I teardown-once
 a shell script to run once, after all tests
 .PP
-.B cmdtest
+.B cmdspecs
 is given the name of the directory with all the tests,
 or several such directories, and it does the following:
 .PP
@@ -130,7 +130,7 @@ and
 .TP
 .B SRCDIR
 directory from which
-.B cmdtest
+.B cmdspecs
 was launched
 .SH OPTIONS
 .SH EXAMPLE
@@ -155,17 +155,17 @@ hello, world
 Then you can run the tests:
 .IP
 .nf
-$ cmdtest echo-tests
+$ cmdspecs echo-tests
 test 1/1
 1/1 tests OK, 0 failures
 .fi
 .PP
 If you change the stdout file to be something else,
-.B cmdtest
+.B cmdspecs
 will report the differences:
 .IP
 .nf
-$ cmdtest echo-tests
+$ cmdspecs echo-tests
 FAIL: hello: stdout diff:
 --- echo-tests/hello.stdout	2011-09-11 19:14:47 +0100
 +++ echo-tests/hello.stdout-actual	2011-09-11 19:14:49 +0100

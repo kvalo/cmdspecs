@@ -6,8 +6,8 @@ set -eu
 
 python3 -m unittest discover -p '*tests.py'
 
-./cmdtest echo-tests
+./cmdspecs echo-tests
 
-./cmdtest sort-tests
+./cmdspecs sort-tests
 
-./cmdtest fail-tests && echo "fail-tests did not fail!" && exit 1
+./cmdspecs fail-tests && echo "fail-tests did not fail!" && exit 1
