@@ -40,7 +40,6 @@ Repository = "http://liw.fi/cmdtest/"
 [tool.setuptools]
 script-files = ["cmdspecs"]
 include-package-data = true
-py-modules = ["cmdspecslib"]
 
 [tool.setuptools.packages.find]
 exclude = ["echo-tests*", "fail-tests*", "sort-tests*", "test-*"]
