@@ -1,0 +1,25 @@
+Source: cmdtest
+Maintainer: Lars Wirzenius <liw@liw.fi>
+Homepage: http://liw.fi/cmdtest/
+Section: devel
+Priority: optional
+Standards-Version: 3.9.8
+Build-Depends: debhelper (>= 9), python3-all (>= 3~),
+    python3-cliapp, python3-ttystatus, python3-markdown,
+    dh-python
+X-Python-Version: >= 3.0
+
+Package: cmdtest
+Provides: yarn
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends}, python3 (>= 3~), python3-cliapp,
+    python3-ttystatus, python3-markdown
+Description: blackbox testing of Unix command line programs
+ cmdtest black box tests Unix command line tools. Roughly, it is given a
+ a script, its input files, and its expected output files. cmdtest runs
+ the script, and checks the output is as expected.
+ .
+ cmdtest is aimed specifically at testing non-interactive Unix command
+ line programs, and tries to make that as easy as possible.
+ .
+ Also included is a "scenario testing" tool, yarn.
