@@ -15,9 +15,8 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from distutils.core import setup, Extension
-from distutils.cmd import Command
-from distutils.command.build import build
+from setuptools import setup, Command
+from setuptools.command.build import build
 from distutils.command.clean import clean
 import glob
 import os
@@ -96,6 +95,7 @@ setup(name='cmdspecs',
       author='Lars Wirzenius',
       author_email='liw@liw.fi',
       url='http://liw.fi/cmdtest/',
+      license='GPL-3.0-or-later',
       scripts=['cmdspecs'],
       py_modules=['cmdspecslib'],
       data_files=[('share/man/man1', glob.glob('*.1'))],
@@ -108,9 +108,7 @@ setup(name='cmdspecs',
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
         'Operating System :: Unix',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Utilities',
       ],
