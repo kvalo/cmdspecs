@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cmdspecs"
+version = "0.33"
+description = "blackbox testing of Unix command line tools"
+readme = "README"
+license = "GPL-3.0-or-later"
+authors = [
+    {name = "Lars Wirzenius", email = "liw@liw.fi"},
+    {name = "Kalle Valo", email = "kalle@valot.fi"}
+]
+maintainers = [
+    {name = "Kalle Valo", email = "kalle@valot.fi"}
+]
+keywords = ["testing", "unix", "command-line", "blackbox"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.urls]
+Homepage = "http://liw.fi/cmdtest/"
+Repository = "http://liw.fi/cmdtest/"
+
+[tool.setuptools]
+script-files = ["cmdspecs"]
+include-package-data = true
+py-modules = ["cmdspecslib"]
+
+[tool.setuptools.packages.find]
+exclude = ["echo-tests*", "fail-tests*", "sort-tests*", "test-*"]
+
+[tool.setuptools.package-data]
+cmdspecs = ["*.1"]
+
+[tool.setuptools.data-files]
+"share/man/man1" = ["cmdspecs.1"]

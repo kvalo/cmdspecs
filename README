@@ -15,6 +15,43 @@ If not, it reports problems, and shows the differences.
 See the manual page for details on how to use the program.
 
 
+Installation
+------------
+
+### From Source
+
+Install from the source directory:
+
+```bash
+pip install .
+```
+
+For development (editable install):
+
+```bash
+pip install -e .
+```
+
+### From PyPI
+
+```bash
+pip install cmdspecs
+```
+
+### System-wide Installation
+
+If you prefer system-wide installation:
+
+```bash
+python setup.py install
+```
+
+Or with pip:
+
+```bash
+pip install --user .
+```
+
 
 Legalese
 --------
