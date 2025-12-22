@@ -25,7 +25,6 @@ import shutil
 import subprocess
 
 import cmdtestlib
-import yarnlib
 
 try:
     import markdown
@@ -45,8 +44,6 @@ class GenerateManpage(build):
         build.run(self)
         print('building manpages')
         cmds = ['cmdtest']
-        if markdown_version:
-            cmds.append('yarn')
         for x in cmds:
             with open('%s.1' % x, 'w') as f:
                 subprocess.check_call(['python3', x,
@@ -91,19 +88,16 @@ class Check(Command):
         else:
             raise Exception('fail-tests did not fail, which is a surprise')
 
-        if markdown_version:
-            subprocess.check_call(['./cmdtest', 'yarn.tests'])
 
 
 setup(name='cmdtest',
-      version=yarnlib.__version__,
+      version='0.33',
       description='blackbox testing of Unix command line tools',
       author='Lars Wirzenius',
       author_email='liw@liw.fi',
       url='http://liw.fi/cmdtest/',
-      scripts=['cmdtest', 'yarn'],
+      scripts=['cmdtest'],
       py_modules=['cmdtestlib'],
-      packages=['yarnlib', 'yarnutils'],
       data_files=[('share/man/man1', glob.glob('*.1'))],
       cmdclass={
         'build': GenerateManpage,

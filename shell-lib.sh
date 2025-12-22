@@ -1,4 +1,4 @@
-# A shell library for the shell-lib.yarn test.
+# A shell library for testing purposes.
 
 implement()
 {

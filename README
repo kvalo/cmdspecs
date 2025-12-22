@@ -1,8 +1,7 @@
 README for cmdtest
 ==================
 
-This project consists of two programs: the original `cmdtest`,
-and the newer `yarn`. Both are black box testing tools for Unix
+This project provides `cmdtest`, a black box testing tool for Unix
 command line tools.
 
 cmdtest
@@ -15,30 +14,6 @@ If not, it reports problems, and shows the differences.
 
 See the manual page for details on how to use the program.
 
-`cmdtest` is now in maintenance mode. I do not expect to add any new
-features, but I will fix bugs. `yarn` is now the preferred tool, as it
-seems to actually fit better the kinds of testing I and others have
-been trying to do with `cmdtest`.
-
-
-yarn
-----
-
-`yarn` also black box tests Unix command line tools, but takes
-a different approach, where the emphasis is on verifying that the
-tools works correctly in a sequence of operations, or
-what we call a "test scenario". `yarn` is inspired [BDD][BDD],
-behavior-driven development, and some of the implementations made
-by the Ruby community.
-
-See README.yarn for more details.
-
-`yarn` has been designed with Daniel Silverstone.
-
-[BDD]: https://en.wikipedia.org/wiki/Behavior-driven_development
-
-It is possible that yarn will be split off into its own project
-eventually.
 
 
 Legalese

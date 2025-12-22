@@ -27,7 +27,6 @@ import ttystatus
 import unittest
 
 import cmdtestlib
-import yarnlib
 
 
 ALL_TESTS = ''
@@ -237,4 +236,4 @@ class CommandTester(cliapp.Application):
 
 
 if __name__ == '__main__':
-    CommandTester(version=yarnlib.__version__).run()
+    CommandTester(version='0.33').run()

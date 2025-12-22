@@ -3,6 +3,10 @@ NEWS for cmdtest
 
 This file summarizes changes between releases of cmdtest.
 
+Note: The yarn tool and its associated libraries (yarnlib, yarnutils)
+have been removed from this project as of version 0.33. Yarn was a
+BDD-style testing tool that was developed alongside cmdtest.
+
 Version 0.32+git, not yet released
 ----------------------------------
 
