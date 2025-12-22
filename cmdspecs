@@ -16,6 +16,7 @@
 
 
 import argparse
+import difflib
 import glob
 import logging
 import os
@@ -291,13 +292,13 @@ class CommandTester:
         stdout_diff = self.diff(test.stdout or '/dev/null', stdout_name,
                                 stdout_diff_name)
         if stdout_diff:
-            errors.append(TestFailure(test, 'stdout diff:\n%s' % stdout_diff))
+            errors.append(TestFailure(test, 'stdout diff:\n%s\n' % stdout_diff))
 
         stderr_diff_name = test.path_prefix + '.stderr-diff'
         stderr_diff = self.diff(test.stderr or '/dev/null', stderr_name,
                                 stderr_diff_name)
         if stderr_diff:
-            errors.append(TestFailure(test, 'stderr diff:\n%s' % stderr_diff))
+            errors.append(TestFailure(test, 'stderr diff:\n%s\n' % stderr_diff))
 
         contents = cat(test.exit or '/dev/null')
         expected_exit = int(contents.strip() or '0')
@@ -315,14 +316,65 @@ class CommandTester:
         return errors
 
     def diff(self, expected_name, actual_name, diff_name):
-        argv = ['diff', '-u', expected_name, actual_name]
-        with open(diff_name, 'w') as f:
+        # Read file contents and strip trailing newlines to match diff behavior
+        expected_lines = []
+        actual_lines = []
+
+        try:
+            with open(expected_name, 'r') as f:
+                expected_lines = [line.rstrip('\n') for line in f.readlines()]
+        except FileNotFoundError:
+            expected_lines = []
+
+        try:
+            with open(actual_name, 'r') as f:
+                actual_lines = [line.rstrip('\n') for line in f.readlines()]
+        except FileNotFoundError:
+            actual_lines = []
+
+        # Generate unified diff with proper line termination
+        diff_lines = list(difflib.unified_diff(
+            expected_lines,
+            actual_lines,
+            fromfile=expected_name,
+            tofile=actual_name,
+            lineterm='\n'
+        ))
+
+        # Add timestamps to headers to match diff -u behavior
+        if diff_lines:
+            # Get file modification times
+            expected_mtime = ''
+            actual_mtime = ''
+
             try:
-                subprocess.run(argv, stdout=f, stderr=subprocess.PIPE, check=False)
-            except Exception:
-                pass  # diff command may fail, that's expected
-        with open(diff_name, 'r') as f:
-            return f.read()
+                from datetime import datetime
+                expected_stat = os.stat(expected_name)
+                dt = datetime.fromtimestamp(expected_stat.st_mtime)
+                expected_mtime = dt.strftime('\t%Y-%m-%d %H:%M:%S.%f +0000')
+            except (OSError, FileNotFoundError):
+                expected_mtime = '\t2025-01-01 00:00:00.000000 +0000'
+
+            try:
+                from datetime import datetime
+                actual_stat = os.stat(actual_name)
+                dt = datetime.fromtimestamp(actual_stat.st_mtime)
+                actual_mtime = dt.strftime('\t%Y-%m-%d %H:%M:%S.%f +0000')
+            except (OSError, FileNotFoundError):
+                actual_mtime = '\t2025-01-01 00:00:00.000000 +0000'
+
+            # Replace the headers with timestamp versions
+            if diff_lines[0].startswith('--- '):
+                diff_lines[0] = diff_lines[0].rstrip('\n') + expected_mtime + '\n'
+            if len(diff_lines) > 1 and diff_lines[1].startswith('+++ '):
+                diff_lines[1] = diff_lines[1].rstrip('\n') + actual_mtime + '\n'
+
+        # Write diff to file
+        with open(diff_name, 'w') as f:
+            f.writelines(diff_lines)
+
+        # Return diff content as string
+        return ''.join(diff_lines)
 
     def report_timings(self):
 
