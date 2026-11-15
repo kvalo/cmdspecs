@@ -17,6 +17,7 @@
 import importlib.machinery
 import importlib.util
 import io
+import re
 from pathlib import Path
 
 
@@ -255,6 +256,7 @@ def test_reporter_start_shows_header():
     lines = output.getvalue().splitlines()
     assert lines[0] == '========= test session starts ========='
     assert lines[1].startswith('platform ')
+    assert lines[1].endswith(', cmdspecs %s' % cmdspecs.VERSION)
     assert lines[2:] == ['collected 1 test', '']
 
 
@@ -329,3 +331,14 @@ def test_manpage_documents_all_options():
     for action in parser._actions:
         for option in action.option_strings:
             assert option.replace('-', '\\-') in options, option
+
+
+def test_version_matches_pyproject():
+    pyproject = Path(_path).with_name('pyproject.toml').read_text()
+    match = re.search(r'^version = "(.*)"$', pyproject, re.MULTILINE)
+    assert match.group(1) == cmdspecs.VERSION
+
+
+def test_version_matches_news():
+    news = Path(_path).with_name('NEWS').read_text()
+    assert 'Version %s,' % cmdspecs.VERSION in news

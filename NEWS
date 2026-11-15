@@ -17,6 +17,9 @@ Version 0.33, not yet released
   environment variable control that. The new `-v` (`--verbose`)
   option shows the name and result of each test on its own line.
 
+* The new `--version` option prints the version of cmdspecs, and the
+  header of the output shows it too.
+
 * Python 3.10 or newer is now required.
 
 * The project's own tests now live under `tests/` and run with

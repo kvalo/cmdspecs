@@ -15,6 +15,9 @@ working with code in this repository.
   `setup.py`. cmdspecs is not published on PyPI and won't be, so don't
   add PyPI-only metadata (classifiers, keywords) or
   `pip install cmdspecs` instructions.
+- The version is in both `VERSION` in `cmdspecs` and `version` in
+  `pyproject.toml`, and NEWS has a heading for it. A release bump
+  must update all three; unit tests check that they match.
 
 ## Testing
 

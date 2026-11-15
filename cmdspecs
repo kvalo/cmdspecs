@@ -27,6 +27,9 @@ import tempfile
 import time
 
 
+VERSION = '0.33'
+
+
 def cat(filename):
     '''Return contents of file, or empty string if it doesn't exist.'''
     if os.path.exists(filename):
@@ -177,8 +180,8 @@ class Reporter:
     def start(self, tests):
         self.total = len(tests)
         self.sep('=', 'test session starts', BOLD)
-        self.write('platform %s -- Python %s\n' %
-                   (sys.platform, platform.python_version()))
+        self.write('platform %s -- Python %s, cmdspecs %s\n' %
+                   (sys.platform, platform.python_version(), VERSION))
         self.write('collected %d test%s\n' %
                    (self.total, '' if self.total == 1 else 's'), BOLD)
         self.write('\n')
@@ -271,6 +274,8 @@ class CommandTester:
                             default='auto',
                             help='color the output: auto (the default) '
                                  'colors it on a terminal')
+        parser.add_argument('--version', action='version',
+                            version='%(prog)s ' + VERSION)
         parser.add_argument('dirnames', nargs='+',
                             help='directories containing tests')
         return parser
