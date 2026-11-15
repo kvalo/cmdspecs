@@ -192,6 +192,16 @@ def test_diff_treats_missing_expected_file_as_empty(tmp_path):
     assert diff.splitlines()[2:] == ['@@ -0,0 +1 @@', '+hello']
 
 
+def test_diff_compares_bytes(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('\\xff\n')
+    actual = tmp_path / 'actual'
+    actual.write_bytes(b'\xff\n')
+    diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
+                                         str(tmp_path / 'diff'))
+    assert diff.splitlines()[2:] == ['@@ -1 +1 @@', '-\\xff', '+\\xff']
+
+
 def test_find_requested_tests_includes_dir_scripts(tmp_path):
     for name in ['foo.script', 'foo.stdout', 'bar.script', 'setup',
                  'teardown_once']:

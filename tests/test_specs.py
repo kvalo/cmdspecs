@@ -159,12 +159,12 @@ def test_reports_non_executable_script(tmp_path):
                              '0/1 tests OK, 1 failures\n' % script)
 
 
-@pytest.mark.xfail(strict=True, reason='diff() reads output as UTF-8')
 def test_reports_non_utf8_output(tmp_path):
     write_script(tmp_path / 'foo.script', "printf '\\377\\n'\n")
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'FAIL: foo: stdout diff' in result.stdout
+    assert '\n+\\xff\n' in result.stdout
     assert 'Traceback' not in result.stderr
 
 

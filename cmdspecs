@@ -356,27 +356,30 @@ class CommandTester:
         expected_lines = []
         actual_lines = []
 
+        # Compare bytes, as the output need not be valid UTF-8
         try:
-            with open(expected_name, 'r') as f:
-                expected_lines = [line.rstrip('\n') for line in f.readlines()]
+            with open(expected_name, 'rb') as f:
+                expected_lines = [line.rstrip(b'\n') for line in f.readlines()]
         except FileNotFoundError:
             expected_lines = []
 
         try:
-            with open(actual_name, 'r') as f:
-                actual_lines = [line.rstrip('\n') for line in f.readlines()]
+            with open(actual_name, 'rb') as f:
+                actual_lines = [line.rstrip(b'\n') for line in f.readlines()]
         except FileNotFoundError:
             actual_lines = []
 
         # The input lines have no newlines, so generate the diff without
-        # them and terminate every line afterwards
-        diff_lines = [line + '\n' for line in difflib.unified_diff(
-            expected_lines,
-            actual_lines,
-            fromfile=expected_name,
-            tofile=actual_name,
-            lineterm=''
-        )]
+        # them and terminate every line afterwards. Show invalid UTF-8
+        # as backslash escapes.
+        diff_lines = [line.decode('utf-8', 'backslashreplace') + '\n'
+                      for line in difflib.diff_bytes(
+                          difflib.unified_diff,
+                          expected_lines,
+                          actual_lines,
+                          fromfile=os.fsencode(expected_name),
+                          tofile=os.fsencode(actual_name),
+                          lineterm=b'')]
 
         # Add timestamps to headers to match diff -u behavior
         if diff_lines:
