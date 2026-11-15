@@ -15,7 +15,7 @@ authors = [
 maintainers = [
     {name = "Kalle Valo", email = "kalle@valot.fi"}
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]

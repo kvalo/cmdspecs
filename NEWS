@@ -17,6 +17,8 @@ Version 0.32+git, not yet released
   environment variable control that. The new `-v` (`--verbose`)
   option shows the name and result of each test on its own line.
 
+* Python 3.10 or newer is now required.
+
 * The project's own tests now live under `tests/` and run with
   pytest via `./check`, which ends with a single pass/fail summary.
 
