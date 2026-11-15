@@ -25,7 +25,8 @@ def copy_spec(name, tmp_path):
     return shutil.copytree(SPECS / name, tmp_path / name)
 
 
-@pytest.mark.parametrize('name', ['echo', 'sort'])
+@pytest.mark.parametrize('name', ['echo', 'sort', 'stderr', 'exit',
+                                  'env'])
 def test_passing_spec(name, tmp_path):
     spec = copy_spec(name, tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
@@ -41,3 +42,117 @@ def test_failing_spec_reports_diff(tmp_path):
     assert 'FAIL' not in result.stderr
     assert '0/1 tests OK, 1 failures' in result.stdout
     assert (spec / 'fail.stdout-actual').exists()
+
+
+def write_script(path, body):
+    path.write_text('#!/bin/sh\n' + body)
+    path.chmod(0o755)
+
+
+def test_hooks_run_in_order(tmp_path):
+    spec = copy_spec('hooks', tmp_path)
+    result = run_cmdspecs(spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / 'log').read_text().splitlines() == [
+        'setup_once ',
+        'setup a', 'a.setup', 'a.script', 'a.teardown', 'teardown a',
+        'setup b', 'b.setup', 'b.script', 'b.teardown', 'teardown b',
+        'teardown_once ',
+    ]
+
+
+def test_runs_tests_from_multiple_dirs(tmp_path):
+    echo = copy_spec('echo', tmp_path)
+    sort = copy_spec('sort', tmp_path)
+    result = run_cmdspecs(echo, sort, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '3/3 tests OK, 0 failures' in result.stdout
+
+
+def test_test_option_runs_only_named_test(tmp_path):
+    echo = copy_spec('echo', tmp_path)
+    sort = copy_spec('sort', tmp_path)
+    result = run_cmdspecs('-t', 'hello', echo, sort, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '1/1 tests OK, 0 failures' in result.stdout
+
+
+def test_timings_option_reports_timings(tmp_path):
+    spec = copy_spec('echo', tmp_path)
+    result = run_cmdspecs('--timings', spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'Timings (in seconds):' in result.stdout
+    assert 'whole test suite' in result.stdout
+
+
+def test_keep_option_keeps_work_area_on_failure(tmp_path):
+    spec = copy_spec('fail', tmp_path)
+    result = run_cmdspecs('--keep', spec, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    prefix = 'Test work area: '
+    lines = [x for x in result.stdout.splitlines() if x.startswith(prefix)]
+    assert len(lines) == 1
+    workdir = Path(lines[0][len(prefix):])
+    try:
+        assert (workdir / 'data' / 'file.txt').exists()
+    finally:
+        shutil.rmtree(workdir)
+
+
+def test_success_leaves_no_output_files(tmp_path):
+    spec = copy_spec('sort', tmp_path)
+    before = sorted(spec.iterdir())
+    result = run_cmdspecs(spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert sorted(spec.iterdir()) == before
+
+
+@pytest.mark.xfail(strict=True, reason='counts failures, not failed tests')
+def test_counts_failed_tests_not_failures(tmp_path):
+    write_script(tmp_path / 'foo.script', 'echo unexpected\nexit 3\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert '0/1 tests OK, 1 failures' in result.stdout
+
+
+@pytest.mark.xfail(strict=True, reason='missing .script raises ValueError')
+def test_reports_missing_script(tmp_path):
+    (tmp_path / 'foo.stdout').write_text('hello\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+@pytest.mark.xfail(strict=True, reason='failing setup raises an exception')
+def test_reports_failing_setup(tmp_path):
+    write_script(tmp_path / 'setup', 'exit 1\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'Traceback' not in result.stderr
+
+
+@pytest.mark.xfail(strict=True, reason='error running script is hidden')
+def test_reports_non_executable_script(tmp_path):
+    (tmp_path / 'foo.script').write_text('#!/bin/sh\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'Permission denied' in result.stdout
+
+
+@pytest.mark.xfail(strict=True, reason='diff() reads output as UTF-8')
+def test_reports_non_utf8_output(tmp_path):
+    write_script(tmp_path / 'foo.script', "printf '\\377\\n'\n")
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAIL: foo: stdout diff' in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
+@pytest.mark.xfail(strict=True, reason='-t foo matches foo.bar.* too')
+def test_test_option_matches_exact_name(tmp_path):
+    write_script(tmp_path / 'foo.script', '')
+    write_script(tmp_path / 'foo.bar.script', '')
+    result = run_cmdspecs('-t', 'foo', tmp_path, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '1/1 tests OK, 0 failures' in result.stdout

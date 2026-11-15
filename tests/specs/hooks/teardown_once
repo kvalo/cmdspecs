@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "teardown_once $TESTNAME" >> "$SRCDIR/log"

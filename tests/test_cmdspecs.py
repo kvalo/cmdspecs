@@ -58,6 +58,29 @@ def test_scan_finds_tests():
     assert test.stdin is None
 
 
+def test_scan_finds_all_per_test_files():
+    td = cmdspecs.TestDir()
+    suffixes = cmdspecs.TestDir.per_test_suffixes
+    td.scan('tests', filenames=['foo.' + x for x in suffixes])
+    assert len(td.tests) == 1
+    test = td.tests[0]
+    for suffix in suffixes:
+        assert getattr(test, suffix) == 'tests/foo.' + suffix
+
+
+def test_scan_ignores_output_files():
+    td = cmdspecs.TestDir()
+    td.scan('tests', filenames=['foo.script', 'bar.stdout-actual',
+                                'bar.stdout-diff', 'bar.stderr-actual',
+                                'bar.stderr-diff'])
+    assert [x.name for x in td.tests] == ['foo']
+
+
+def test_finds_prefix_with_dot():
+    td = cmdspecs.TestDir()
+    assert td.find_prefixes(['foo.bar.script']) == ['foo.bar']
+
+
 def test_finds_no_prefixes_when_there_are_none():
     assert cmdspecs.TestDir().find_prefixes(['setup']) == []
 
@@ -83,17 +106,58 @@ def test_cat_returns_contents_of_file(tmp_path):
     assert cmdspecs.cat(str(filename)) == 'foobar'
 
 
-def test_run_test_reports_actual_exit_code(tmp_path):
-    script = tmp_path / 'foo.script'
-    script.write_text('#!/bin/sh\nexit 3\n')
+def make_script(tmp_path, name, body):
+    script = tmp_path / (name + '.script')
+    script.write_text('#!/bin/sh\n' + body)
     script.chmod(0o755)
+
+
+def run_single_test(tmp_path):
     tester = cmdspecs.CommandTester()
     tester.datadir = str(tmp_path)
     td = cmdspecs.TestDir()
     td.scan(str(tmp_path))
-    errors = tester.run_test(td.tests[0])
-    assert [str(e) for e in errors] == \
+    return [str(e) for e in tester.run_test(td.tests[0])]
+
+
+def test_run_test_reports_actual_exit_code(tmp_path):
+    make_script(tmp_path, 'foo', 'exit 3\n')
+    assert run_single_test(tmp_path) == \
         ['FAIL: foo: got exit code 3, expected 0']
+
+
+def test_run_test_accepts_expected_exit_code(tmp_path):
+    make_script(tmp_path, 'foo', 'exit 3\n')
+    (tmp_path / 'foo.exit').write_text(' 3 \n')
+    assert run_single_test(tmp_path) == []
+
+
+def test_run_test_feeds_stdin(tmp_path):
+    make_script(tmp_path, 'foo', 'cat\n')
+    (tmp_path / 'foo.stdin').write_text('hello\n')
+    (tmp_path / 'foo.stdout').write_text('hello\n')
+    assert run_single_test(tmp_path) == []
+
+
+def test_run_test_reports_stderr_diff(tmp_path):
+    make_script(tmp_path, 'foo', 'echo oops 1>&2\n')
+    errors = run_single_test(tmp_path)
+    assert len(errors) == 1
+    assert errors[0].startswith('FAIL: foo: stderr diff:\n')
+    assert '+oops' in errors[0]
+
+
+def test_run_test_removes_output_files_on_success(tmp_path):
+    make_script(tmp_path, 'foo', '')
+    assert run_single_test(tmp_path) == []
+    assert sorted(x.name for x in tmp_path.iterdir()) == ['foo.script']
+
+
+def test_run_test_keeps_output_files_on_failure(tmp_path):
+    make_script(tmp_path, 'foo', 'echo hello\n')
+    run_single_test(tmp_path)
+    assert (tmp_path / 'foo.stdout-actual').read_text() == 'hello\n'
+    assert (tmp_path / 'foo.stdout-diff').exists()
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):
@@ -105,3 +169,35 @@ def test_diff_puts_each_line_on_its_own_line(tmp_path):
                                          str(tmp_path / 'diff'))
     assert diff.splitlines()[2:] == ['@@ -1 +1 @@', '-broken', '+hello']
     assert diff.endswith('\n')
+
+
+def test_diff_returns_empty_string_for_identical_files(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('hello\n')
+    actual = tmp_path / 'actual'
+    actual.write_text('hello\n')
+    diff_name = tmp_path / 'diff'
+    diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
+                                         str(diff_name))
+    assert diff == ''
+    assert diff_name.read_text() == ''
+
+
+def test_diff_treats_missing_expected_file_as_empty(tmp_path):
+    actual = tmp_path / 'actual'
+    actual.write_text('hello\n')
+    diff = cmdspecs.CommandTester().diff(str(tmp_path / 'missing'),
+                                         str(actual),
+                                         str(tmp_path / 'diff'))
+    assert diff.splitlines()[2:] == ['@@ -0,0 +1 @@', '+hello']
+
+
+def test_find_requested_tests_includes_dir_scripts(tmp_path):
+    for name in ['foo.script', 'foo.stdout', 'bar.script', 'setup',
+                 'teardown_once']:
+        (tmp_path / name).write_text('')
+    tester = cmdspecs.CommandTester()
+    tester.settings = {'test': ['foo']}
+    filenames = tester.find_requested_tests(str(tmp_path))
+    assert sorted(filenames) == ['foo.script', 'foo.stdout', 'setup',
+                                 'teardown_once']
