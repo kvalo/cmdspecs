@@ -27,7 +27,7 @@ import tempfile
 import time
 
 
-VERSION = '0.33'
+VERSION = '0.33+git'
 
 
 def cat(filename):

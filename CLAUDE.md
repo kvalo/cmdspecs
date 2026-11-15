@@ -18,6 +18,11 @@ working with code in this repository.
 - The version is in both `VERSION` in `cmdspecs` and `version` in
   `pyproject.toml`, and NEWS has a heading for it. A release bump
   must update all three; unit tests check that they match.
+- Right after a release, set the version to `<release>+git` (a PEP
+  440 local version label) with the NEWS heading
+  `Version <release>+git, not yet released`, so git builds are not
+  mistaken for the release. At the next release, replace these with
+  the new version and `released YYYY-MM-DD`.
 
 ## Testing
 
