@@ -17,6 +17,14 @@
 .SH NAME
 cmdspecs \- blackbox testing of Unix command line tools
 .SH SYNOPSIS
+.B cmdspecs
+.RB [ \-c
+.IR COMMAND ]
+.RB [ \-t
+.IR TEST ]...\&
+.RB [ \-\-timings ]
+.RB [ \-k ]
+.IR DIR ...
 .SH DESCRIPTION
 .B cmdspecs
 black box tests Unix command line tools.
@@ -133,6 +141,23 @@ directory from which
 .B cmdspecs
 was launched
 .SH OPTIONS
+.TP
+.BR \-c ", " \-\-command =\fICOMMAND\fR
+Ignored for backwards compatibility.
+.TP
+.BR \-t ", " \-\-test =\fITEST\fR
+Run only the test
+.IR TEST .
+Can be given many times.
+.TP
+.B \-\-timings
+Report how long each test takes.
+.TP
+.BR \-k ", " \-\-keep
+Keep temporary data on failure.
+.TP
+.BR \-h ", " \-\-help
+Show a help message and exit.
 .SH EXAMPLE
 To test that the
 .BR echo (1)
@@ -190,4 +215,4 @@ fixing things,
 until you've manually checked the actual output is correct,
 then you rename the file.
 .SH "SEE ALSO"
-.BR cliapp (5).
+.BR diff (1).
