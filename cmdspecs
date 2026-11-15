@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # Copyright 2011  Lars Wirzenius
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -131,16 +131,17 @@ class CommandTester:
             prog='cmdspecs'
         )
         self.parser.add_argument('-c', '--command',
-                               help='ignored for backwards compatibility')
+                                 help='ignored for backwards compatibility')
         self.parser.add_argument('-t', '--test', action='append',
-                               help='run only TEST (can be given many times)',
-                               metavar='TEST')
+                                 help='run only TEST '
+                                      '(can be given many times)',
+                                 metavar='TEST')
         self.parser.add_argument('--timings', action='store_true',
-                               help='report how long each test takes')
+                                 help='report how long each test takes')
         self.parser.add_argument('-k', '--keep', action='store_true',
-                               help='keep temporary data on failure')
+                                 help='keep temporary data on failure')
         self.parser.add_argument('dirnames', nargs='+',
-                               help='directories containing tests')
+                                 help='directories containing tests')
         self.output = sys.stdout
 
         args = self.parser.parse_args(argv)
@@ -186,7 +187,7 @@ class CommandTester:
         ok = len(td.tests) - errors
         self.ts.finish()
         self.output.write('%d/%d tests OK, %d failures\n' %
-                            (ok, len(td.tests), errors))
+                          (ok, len(td.tests), errors))
 
         if keep_tempdir:
             self.output.write('Test work area: %s\n' % self.tempdir)
@@ -200,7 +201,7 @@ class CommandTester:
     def setup_ttystatus(self, td):
         # Simple progress reporting instead of ttystatus
         self.ts = SimpleTerminalStatus(td.tests)
-        
+
     def load_tests(self, dirnames):
         td = TestDir()
         for dirname in dirnames:
@@ -230,7 +231,7 @@ class CommandTester:
         logging.info('Temporary directory %s' % self.tempdir)
         self.datadir = os.path.join(self.tempdir, 'data')
         os.mkdir(self.datadir)
-        
+
     def cleanup_tempdir(self):
         logging.info('Removing temporary directory %s' % self.tempdir)
         shutil.rmtree(self.tempdir)
@@ -240,7 +241,8 @@ class CommandTester:
                       (test_name, script_name))
         if script_name:
             started = time.time()
-            subprocess.check_call([script_name], env=self.add_to_env(test_name))
+            subprocess.check_call([script_name],
+                                  env=self.add_to_env(test_name))
             self.timings[test_name][script_name] = time.time() - started
 
     def add_to_env(self, test_name):
@@ -271,11 +273,11 @@ class CommandTester:
                 env = self.add_to_env(test.name)
                 try:
                     result = subprocess.run(argv,
-                                          env=env,
-                                          stdin=stdin,
-                                          stdout=stdout,
-                                          stderr=stderr,
-                                          check=False)
+                                            env=env,
+                                            stdin=stdin,
+                                            stdout=stdout,
+                                            stderr=stderr,
+                                            check=False)
                     exit_code = result.returncode
                 except Exception:
                     # Handle cases where subprocess.run fails
@@ -291,27 +293,29 @@ class CommandTester:
         stdout_diff = self.diff(test.stdout or '/dev/null', stdout_name,
                                 stdout_diff_name)
         if stdout_diff:
-            errors.append(TestFailure(test, 'stdout diff:\n%s\n' % stdout_diff))
+            errors.append(TestFailure(test,
+                                      'stdout diff:\n%s\n' % stdout_diff))
 
         stderr_diff_name = test.path_prefix + '.stderr-diff'
         stderr_diff = self.diff(test.stderr or '/dev/null', stderr_name,
                                 stderr_diff_name)
         if stderr_diff:
-            errors.append(TestFailure(test, 'stderr diff:\n%s\n' % stderr_diff))
+            errors.append(TestFailure(test,
+                                      'stderr diff:\n%s\n' % stderr_diff))
 
         contents = cat(test.exit or '/dev/null')
         expected_exit = int(contents.strip() or '0')
         if exit_code != expected_exit:
-            errors.append(TestFailure(test, 
+            errors.append(TestFailure(test,
                                       'got exit code %s, expected %s' %
-                                        (exit, expected_exit)))
+                                      (exit, expected_exit)))
 
         if not errors:
             os.remove(stdout_name)
             os.remove(stderr_name)
             os.remove(stdout_diff_name)
             os.remove(stderr_diff_name)
-        
+
         return errors
 
     def diff(self, expected_name, actual_name, diff_name):
@@ -364,9 +368,11 @@ class CommandTester:
 
             # Replace the headers with timestamp versions
             if diff_lines[0].startswith('--- '):
-                diff_lines[0] = diff_lines[0].rstrip('\n') + expected_mtime + '\n'
+                diff_lines[0] = (diff_lines[0].rstrip('\n') +
+                                 expected_mtime + '\n')
             if len(diff_lines) > 1 and diff_lines[1].startswith('+++ '):
-                diff_lines[1] = diff_lines[1].rstrip('\n') + actual_mtime + '\n'
+                diff_lines[1] = (diff_lines[1].rstrip('\n') +
+                                 actual_mtime + '\n')
 
         # Write diff to file
         with open(diff_name, 'w') as f:
@@ -380,11 +386,11 @@ class CommandTester:
         def report(key, title):
             t = self.timings[key]
             self.output.write('  %s: %.1f s\n' % (title, t[COMPLETE_TEST]))
-            
+
             items = [(t[x], x) for x in t.keys() if x != COMPLETE_TEST]
             for secs, script in sorted(items):
                 self.output.write('    %4.1f %s\n' % (secs, script))
-                
+
         self.output.write('Timings (in seconds):\n')
         report(ALL_TESTS, 'whole test suite')
         for name in sorted(x for x in self.timings.keys() if x != ALL_TESTS):

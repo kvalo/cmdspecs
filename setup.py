@@ -70,7 +70,7 @@ class Check(Command):
         try:
             import markdown
             has_markdown = (hasattr(markdown, 'extensions') and
-                          hasattr(markdown.extensions, 'Extension'))
+                            hasattr(markdown.extensions, 'Extension'))
         except ImportError:
             has_markdown = False
 
@@ -94,7 +94,8 @@ class Check(Command):
             try:
                 subprocess.check_call(['./cmdspecs', test_dir])
             except subprocess.CalledProcessError as e:
-                raise RuntimeError(f"{test_dir} failed with exit code {e.returncode}")
+                raise RuntimeError(
+                    f"{test_dir} failed with exit code {e.returncode}")
 
         # Test that fail-tests actually fails
         print("Testing fail-tests (should fail)...")

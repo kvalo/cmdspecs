@@ -1,15 +1,15 @@
 # Copyright 2011  Lars Wirzenius
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -46,7 +46,7 @@ class TestDirTests(unittest.TestCase):
 
     def test_finds_setup_and_teardown_files(self):
         td = TestDir()
-        td.scan('tests', filenames=['setup_once', 'setup', 'teardown', 
+        td.scan('tests', filenames=['setup_once', 'setup', 'teardown',
                                     'teardown_once'])
         self.assertEqual(td.setup_once, 'tests/setup_once')
         self.assertEqual(td.setup, 'tests/setup')
@@ -73,25 +73,25 @@ class TestDirTests(unittest.TestCase):
 
     def test_finds_two_prefixes(self):
         td = TestDir()
-        self.assertEqual(td.find_prefixes(['setup', 'foo.setup', 'bar.script']), 
-                         ['bar', 'foo'])
+        self.assertEqual(
+            td.find_prefixes(['setup', 'foo.setup', 'bar.script']),
+            ['bar', 'foo'])
 
 
 class CatTests(unittest.TestCase):
 
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        
+
     def tearDown(self):
         shutil.rmtree(self.tempdir)
-        
+
     def test_returns_empty_string_for_nonexistent_file(self):
         filename = os.path.join(self.tempdir, 'file.txt')
         self.assertEqual(cat(filename), '')
-        
+
     def test_returns_contents_of_file(self):
         filename = os.path.join(self.tempdir, 'file.txt')
         with open(filename, 'w') as f:
             f.write('foobar')
         self.assertEqual(cat(filename), 'foobar')
-
