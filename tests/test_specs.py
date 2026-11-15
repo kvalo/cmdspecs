@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Integration tests: run the cmdspecs script on the spec dirs in specs/.
 #
 # Each spec dir is copied to a temporary directory first, because
