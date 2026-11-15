@@ -32,16 +32,17 @@ def test_passing_spec(name, tmp_path):
     spec = copy_spec(name, tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert 'tests OK, 0 failures' in result.stdout
+    assert ' passed in ' in result.stdout
+    assert 'failed' not in result.stdout
 
 
 def test_failing_spec_reports_diff(tmp_path):
     spec = copy_spec('fail', tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'FAIL: fail: stdout diff' in result.stdout
+    assert 'FAILED fail - stdout diff:' in result.stdout
     assert 'FAIL' not in result.stderr
-    assert '0/1 tests OK, 1 failures' in result.stdout
+    assert ' 1 failed in ' in result.stdout
     assert (spec / 'fail.stdout-actual').exists()
 
 
@@ -67,7 +68,7 @@ def test_runs_tests_from_multiple_dirs(tmp_path):
     sort = copy_spec('sort', tmp_path)
     result = run_cmdspecs(echo, sort, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '3/3 tests OK, 0 failures' in result.stdout
+    assert ' 3 passed in ' in result.stdout
 
 
 def test_test_option_runs_only_named_test(tmp_path):
@@ -75,7 +76,7 @@ def test_test_option_runs_only_named_test(tmp_path):
     sort = copy_spec('sort', tmp_path)
     result = run_cmdspecs('-t', 'hello', echo, sort, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '1/1 tests OK, 0 failures' in result.stdout
+    assert ' 1 passed in ' in result.stdout
 
 
 def test_timings_option_reports_timings(tmp_path):
@@ -112,14 +113,14 @@ def test_counts_failed_tests_not_failures(tmp_path):
     write_script(tmp_path / 'foo.script', 'echo unexpected\nexit 3\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert '0/1 tests OK, 1 failures' in result.stdout
+    assert ' 1 failed in ' in result.stdout
 
 
 def test_reports_missing_script(tmp_path):
     (tmp_path / 'foo.stdout').write_text('hello\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'FAIL: foo: missing foo.script' in result.stdout
+    assert 'FAILED foo - missing foo.script' in result.stdout
     assert 'Traceback' not in result.stderr
 
 
@@ -129,9 +130,9 @@ def test_reports_failing_setup(tmp_path):
     write_script(tmp_path / 'bar.script', '')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'FAIL: foo: %s: exited with 1' % (tmp_path / 'setup') \
+    assert 'FAILED foo - %s: exited with 1' % (tmp_path / 'setup') \
         in result.stdout
-    assert '0/2 tests OK, 2 failures' in result.stdout
+    assert ' 2 failed in ' in result.stdout
     assert 'Traceback' not in result.stderr
 
 
@@ -154,16 +155,16 @@ def test_reports_non_executable_script(tmp_path):
     script.write_text('#!/bin/sh\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert result.stdout == ('FAIL: foo: could not run %s: '
-                             'Permission denied\n'
-                             '0/1 tests OK, 1 failures\n' % script)
+    assert ('FAILED foo - could not run %s: Permission denied\n' %
+            script) in result.stdout
+    assert ' 1 failed in ' in result.stdout
 
 
 def test_reports_non_utf8_output(tmp_path):
     write_script(tmp_path / 'foo.script', "printf '\\377\\n'\n")
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'FAIL: foo: stdout diff' in result.stdout
+    assert 'FAILED foo - stdout diff:' in result.stdout
     assert '\n+\\xff\n' in result.stdout
     assert 'Traceback' not in result.stderr
 
@@ -173,4 +174,37 @@ def test_test_option_matches_exact_name(tmp_path):
     write_script(tmp_path / 'foo.bar.script', '')
     result = run_cmdspecs('-t', 'foo', tmp_path, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '1/1 tests OK, 0 failures' in result.stdout
+    assert ' 1 passed in ' in result.stdout
+
+
+def test_shows_header_and_dots(tmp_path):
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs(spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = result.stdout.splitlines()
+    assert 'test session starts' in lines[0]
+    assert 'collected 2 tests' in lines
+    assert any(x.startswith('%s .. ' % spec) and x.endswith('[100%]')
+               for x in lines)
+
+
+def test_verbose_option_shows_test_names(tmp_path):
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs('-v', spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '%s::empty PASSED' % spec in result.stdout
+    assert '%s::single-line PASSED' % spec in result.stdout
+
+
+def test_color_option_colors_output(tmp_path):
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs('--color=yes', spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '\x1b[' in result.stdout
+
+
+def test_no_colors_when_not_a_terminal(tmp_path):
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs(spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '\x1b' not in result.stdout

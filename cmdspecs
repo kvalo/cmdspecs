@@ -19,6 +19,7 @@ import argparse
 import difflib
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -95,7 +96,8 @@ COMPLETE_TEST = ''
 class TestFailure(Exception):
 
     def __init__(self, test, msg):
-        self.msg = 'FAIL: %s: %s' % (test.name, msg)
+        self.test = test
+        self.msg = msg
 
     def __str__(self):
         return self.msg
@@ -110,51 +112,140 @@ class ScriptError(Exception):
         return self.msg
 
 
-class SimpleTerminalStatus:
-    """Simple replacement for ttystatus.TerminalStatus
+BOLD = '1'
+RED = '31'
+GREEN = '32'
+YELLOW = '33'
+CYAN = '36'
 
-    Show which test is running on a single line that gets overwritten,
-    but only if output is a terminal.
+
+class Reporter:
+
+    """Report test progress and results like pytest does.
+
+    Without verbose, show a dot (or F) per test on a line per test
+    directory. With verbose, show each test on a line of its own.
 
     """
 
-    def __init__(self, tests, output):
-        self.tests = tests
+    def __init__(self, output, verbose=False, color=False, width=None):
         self.output = output
-        self.current_test = None
-        self.test_name = None
-        self.enabled = output.isatty()
-        self.shown = ''
+        self.verbose = verbose
+        self.color = color
+        if width is None:
+            width = shutil.get_terminal_size().columns
+        self.width = width
+        self.total = 0
+        self.done = 0
+        self.failed = 0
+        self.dirname = None
+        self.line_len = 0
 
-    def __setitem__(self, key, value):
-        if key == 'test':
-            self.current_test = value
-        elif key == 'test-name':
-            self.test_name = value
-            self.show()
+    def paint(self, text, *codes):
+        if not self.color or not codes:
+            return text
+        return '\x1b[%sm%s\x1b[0m' % (';'.join(codes), text)
 
-    def show(self):
-        if not self.enabled:
-            return
-        index = self.tests.index(self.current_test) + 1
-        text = 'test %d/%d: %s' % (index, len(self.tests), self.test_name)
-        # A line that wraps can't be overwritten with \r, so keep it
-        # narrower than the terminal.
-        width = shutil.get_terminal_size().columns - 1
-        text = text[:width]
-        self.output.write('\r' + text.ljust(len(self.shown)))
+    def write(self, text, *codes):
+        self.output.write(self.paint(text, *codes))
         self.output.flush()
-        self.shown = text
+        if '\n' in text:
+            self.line_len = len(text) - text.rindex('\n') - 1
+        else:
+            self.line_len += len(text)
 
-    def clear(self):
-        if not self.enabled or not self.shown:
+    def sep(self, char, title, *codes):
+        title = ' %s ' % title
+        n = max(self.width - 1 - len(title), 2)
+        left = char * (n // 2)
+        right = char * (n - n // 2)
+        self.write(left + title + right, *codes)
+        self.write('\n')
+
+    def main_color(self):
+        return RED if self.failed else GREEN
+
+    def end_line(self):
+        if not self.line_len:
             return
-        self.output.write('\r' + ' ' * len(self.shown) + '\r')
-        self.output.flush()
-        self.shown = ''
+        percent = '[%3d%%]' % (100 * self.done // max(self.total, 1))
+        pad = self.width - 1 - self.line_len - len(percent)
+        self.write(' ' * max(pad, 1))
+        self.write(percent, self.main_color())
+        self.write('\n')
 
-    def finish(self):
-        self.clear()
+    def start(self, tests):
+        self.total = len(tests)
+        self.sep('=', 'test session starts', BOLD)
+        self.write('platform %s -- Python %s\n' %
+                   (sys.platform, platform.python_version()))
+        self.write('collected %d test%s\n' %
+                   (self.total, '' if self.total == 1 else 's'), BOLD)
+        self.write('\n')
+
+    def test_started(self, test):
+        dirname = os.path.dirname(test.path_prefix)
+        if self.verbose:
+            self.write('%s::%s ' % (dirname, test.name))
+        elif dirname != self.dirname:
+            self.end_line()
+            self.dirname = dirname
+            self.write(dirname + ' ')
+
+    def test_finished(self, test, failures):
+        if not self.verbose and \
+                self.line_len + 1 + len(' [100%]') >= self.width:
+            self.end_line()
+        self.done += 1
+        if failures:
+            self.failed += 1
+        if self.verbose:
+            if failures:
+                self.write('FAILED', RED)
+            else:
+                self.write('PASSED', GREEN)
+            self.end_line()
+        elif failures:
+            self.write('F', RED)
+        else:
+            self.write('.', GREEN)
+
+    def finish(self, failed, passed, elapsed):
+        '''Show failures and the summary.
+
+        failed is a list of (test, failures) pairs.
+
+        '''
+
+        self.end_line()
+        if failed:
+            self.write('\n')
+            self.sep('=', 'FAILURES')
+            for test, failures in failed:
+                self.sep('_', test.name, RED, BOLD)
+                for failure in failures:
+                    msg = str(failure)
+                    self.write(msg if msg.endswith('\n') else msg + '\n')
+            self.sep('=', 'short test summary info', CYAN)
+            for test, failures in failed:
+                self.write('FAILED', RED)
+                self.write(' %s - %s\n' %
+                           (test.name, str(failures[0]).splitlines()[0]))
+
+        counts = []
+        if failed:
+            counts.append('%d failed' % len(failed))
+        if passed:
+            counts.append('%d passed' % passed)
+        if failed:
+            color = RED
+        elif passed:
+            color = GREEN
+        else:
+            color = YELLOW
+        summary = '%s in %.2fs' % (', '.join(counts) or 'no tests ran',
+                                   elapsed)
+        self.sep('=', summary, color, BOLD)
 
 
 class CommandTester:
@@ -174,6 +265,12 @@ class CommandTester:
                             help='report how long each test takes')
         parser.add_argument('-k', '--keep', action='store_true',
                             help='keep temporary data on failure')
+        parser.add_argument('-v', '--verbose', action='store_true',
+                            help='show the name and result of each test')
+        parser.add_argument('--color', choices=['auto', 'yes', 'no'],
+                            default='auto',
+                            help='color the output: auto (the default) '
+                                 'colors it on a terminal')
         parser.add_argument('dirnames', nargs='+',
                             help='directories containing tests')
         return parser
@@ -195,26 +292,25 @@ class CommandTester:
         }
 
         td = self.load_tests(args.dirnames)
-        self.setup_ttystatus(td)
+        self.setup_reporter(args)
+        self.reporter.start(td.tests)
 
         self.setup_tempdir()
         try:
-            errors = self.run_tests(td)
+            failed = self.run_tests(td)
         except ScriptError as e:
-            self.ts.finish()
+            self.reporter.end_line()
             self.cleanup_tempdir()
             sys.exit('cmdspecs: %s' % e)
 
-        keep_tempdir = errors and self.settings['keep']
+        keep_tempdir = failed and self.settings['keep']
         if not keep_tempdir:
             self.cleanup_tempdir()
 
-        self.timings[ALL_TESTS][COMPLETE_TEST] = time.time() - suite_started
+        elapsed = time.time() - suite_started
+        self.timings[ALL_TESTS][COMPLETE_TEST] = elapsed
 
-        ok = len(td.tests) - errors
-        self.ts.finish()
-        self.output.write('%d/%d tests OK, %d failures\n' %
-                          (ok, len(td.tests), errors))
+        self.reporter.finish(failed, len(td.tests) - len(failed), elapsed)
 
         if keep_tempdir:
             self.output.write('Test work area: %s\n' % self.tempdir)
@@ -222,35 +318,38 @@ class CommandTester:
         if self.settings['timings']:
             self.report_timings()
 
-        if errors:
+        if failed:
             sys.exit(1)
 
     def run_tests(self, td):
-        errors = 0
+        '''Run the tests and return a list of (test, failures) pairs.'''
+        failed = []
         self.run_script(ALL_TESTS, td.setup_once)
         for test in td.tests:
             self.timings[test.name] = {}
             started = time.time()
-            self.ts['test'] = test
-            self.ts['test-name'] = test.name
+            self.reporter.test_started(test)
             try:
                 self.run_script(test.name, td.setup)
                 failures = self.run_test(test)
                 self.run_script(test.name, td.teardown)
             except ScriptError as e:
                 failures = [TestFailure(test, str(e))]
-            for e in failures:
-                self.ts.clear()
-                self.output.write('%s\n' % str(e))
+            self.reporter.test_finished(test, failures)
             if failures:
-                errors += 1
+                failed.append((test, failures))
             self.timings[test.name][COMPLETE_TEST] = time.time() - started
         self.run_script(ALL_TESTS, td.teardown_once)
-        return errors
+        return failed
 
-    def setup_ttystatus(self, td):
-        # Simple progress reporting instead of ttystatus
-        self.ts = SimpleTerminalStatus(td.tests, self.output)
+    def setup_reporter(self, args):
+        if args.color == 'auto':
+            color = (self.output.isatty() and
+                     not os.environ.get('NO_COLOR'))
+        else:
+            color = args.color == 'yes'
+        self.reporter = Reporter(self.output, verbose=args.verbose,
+                                 color=color)
 
     def load_tests(self, dirnames):
         td = TestDir()

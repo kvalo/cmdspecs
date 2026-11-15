@@ -24,6 +24,8 @@ cmdspecs \- blackbox testing of Unix command line tools
 .IR TEST ]...\&
 .RB [ \-\-timings ]
 .RB [ \-k ]
+.RB [ \-v ]
+.RB [ \-\-color =\fIWHEN\fR]
 .IR DIR ...
 .SH DESCRIPTION
 .B cmdspecs
@@ -156,6 +158,26 @@ Report how long each test takes.
 .BR \-k ", " \-\-keep
 Keep temporary data on failure.
 .TP
+.BR \-v ", " \-\-verbose
+Show the name and result of each test on a line of its own,
+instead of a dot for each passed test and
+.B F
+for each failed one.
+.TP
+.BR \-\-color =\fIWHEN\fR
+Color the output.
+.I WHEN
+is
+.BR auto ,
+.BR yes ,
+or
+.BR no .
+The default,
+.BR auto ,
+colors the output only when it goes to a terminal and the
+.B NO_COLOR
+environment variable is unset or empty.
+.TP
 .BR \-h ", " \-\-help
 Show a help message and exit.
 .SH EXAMPLE
@@ -181,8 +203,12 @@ Then you can run the tests:
 .IP
 .nf
 $ cmdspecs echo-tests
-test 1/1
-1/1 tests OK, 0 failures
+============== test session starts ==============
+platform linux \-\- Python 3.13.5
+collected 1 test
+
+echo\-tests .                               [100%]
+=============== 1 passed in 0.00s ===============
 .fi
 .PP
 If you change the stdout file to be something else,
@@ -191,15 +217,23 @@ will report the differences:
 .IP
 .nf
 $ cmdspecs echo-tests
-FAIL: hello: stdout diff:
---- echo-tests/hello.stdout	2011-09-11 19:14:47 +0100
-+++ echo-tests/hello.stdout-actual	2011-09-11 19:14:49 +0100
-@@ -1 +1 @@
--something else
-+hello, world
+============== test session starts ==============
+platform linux \-\- Python 3.13.5
+collected 1 test
 
-test 1/1
-0/1 tests OK, 1 failures
+echo\-tests F                               [100%]
+
+=================== FAILURES ====================
+_____________________ hello _____________________
+stdout diff:
+\-\-\- echo\-tests/hello.stdout	2011\-09\-11 19:14:47 +0100
++++ echo\-tests/hello.stdout\-actual	2011\-09\-11 19:14:49 +0100
+@@ \-1 +1 @@
+\-something else
++hello, world
+============ short test summary info ============
+FAILED hello \- stdout diff:
+=============== 1 failed in 0.00s ===============
 .fi
 .PP
 Furthermore, the 

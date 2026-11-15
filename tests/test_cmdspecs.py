@@ -124,7 +124,7 @@ def run_single_test(tmp_path):
 def test_run_test_reports_actual_exit_code(tmp_path):
     make_script(tmp_path, 'foo', 'exit 3\n')
     assert run_single_test(tmp_path) == \
-        ['FAIL: foo: got exit code 3, expected 0']
+        ['got exit code 3, expected 0']
 
 
 def test_run_test_accepts_expected_exit_code(tmp_path):
@@ -144,7 +144,7 @@ def test_run_test_reports_stderr_diff(tmp_path):
     make_script(tmp_path, 'foo', 'echo oops 1>&2\n')
     errors = run_single_test(tmp_path)
     assert len(errors) == 1
-    assert errors[0].startswith('FAIL: foo: stderr diff:\n')
+    assert errors[0].startswith('stderr diff:\n')
     assert '+oops' in errors[0]
 
 
@@ -226,52 +226,100 @@ def test_find_requested_tests_includes_dir_scripts(tmp_path):
                                  'teardown_once']
 
 
-class FakeTerminal(io.StringIO):
-
-    def isatty(self):
-        return True
-
-
-def make_status(output, names):
-    tests = [cmdspecs.TestCase(name, name) for name in names]
-    return tests, cmdspecs.SimpleTerminalStatus(tests, output)
-
-
-def test_status_shows_test_number_and_name():
-    output = FakeTerminal()
-    tests, ts = make_status(output, ['foo', 'bar'])
-    ts['test'] = tests[1]
-    ts['test-name'] = 'bar'
-    assert output.getvalue() == '\rtest 2/2: bar'
-
-
-def test_status_overwrites_longer_previous_line():
-    output = FakeTerminal()
-    tests, ts = make_status(output, ['foobar', 'x'])
-    for test in tests:
-        ts['test'] = test
-        ts['test-name'] = test.name
-    assert output.getvalue() == ('\rtest 1/2: foobar'
-                                 '\rtest 2/2: x     ')
-
-
-def test_status_finish_wipes_line():
-    output = FakeTerminal()
-    tests, ts = make_status(output, ['foo'])
-    ts['test'] = tests[0]
-    ts['test-name'] = 'foo'
-    ts.finish()
-    assert output.getvalue() == '\rtest 1/1: foo\r' + ' ' * 13 + '\r'
-
-
-def test_status_writes_nothing_when_not_a_terminal():
+def make_reporter(names, **kwargs):
+    tests = [cmdspecs.TestCase(name, path) for name, path in names]
     output = io.StringIO()
-    tests, ts = make_status(output, ['foo'])
-    ts['test'] = tests[0]
-    ts['test-name'] = 'foo'
-    ts.clear()
-    ts.finish()
-    assert output.getvalue() == ''
+    reporter = cmdspecs.Reporter(output, width=40, **kwargs)
+    reporter.start(tests)
+    output.seek(0)
+    output.truncate()
+    return tests, output, reporter
+
+
+def run_reporter(tests, reporter, failing=()):
+    failed = []
+    for test in tests:
+        reporter.test_started(test)
+        failures = []
+        if test.name in failing:
+            failures = [cmdspecs.TestFailure(test, 'stdout diff:\n+x\n')]
+            failed.append((test, failures))
+        reporter.test_finished(test, failures)
+    reporter.finish(failed, len(tests) - len(failed), 0.5)
+
+
+def test_reporter_start_shows_header():
+    output = io.StringIO()
+    reporter = cmdspecs.Reporter(output, width=40)
+    reporter.start([cmdspecs.TestCase('foo', 'd/foo')])
+    lines = output.getvalue().splitlines()
+    assert lines[0] == '========= test session starts ========='
+    assert lines[1].startswith('platform ')
+    assert lines[2:] == ['collected 1 test', '']
+
+
+def test_reporter_shows_dots_per_dir():
+    tests, output, reporter = make_reporter(
+        [('a', 'one/a'), ('b', 'one/b'), ('c', 'two/c')])
+    run_reporter(tests, reporter)
+    assert output.getvalue().splitlines() == [
+        'one ..                           [ 66%]',
+        'two .                            [100%]',
+        '========== 3 passed in 0.50s ==========',
+    ]
+
+
+def test_reporter_wraps_long_dot_lines():
+    names = [('t%d' % i, 'd/t%d' % i) for i in range(40)]
+    tests, output, reporter = make_reporter(names)
+    run_reporter(tests, reporter)
+    lines = output.getvalue().splitlines()
+    assert lines[0] == 'd ' + '.' * 30 + ' [ 75%]'
+    assert lines[1] == '.' * 10 + ' ' * 23 + '[100%]'
+
+
+def test_reporter_shows_failures():
+    tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')])
+    run_reporter(tests, reporter, failing=['b'])
+    assert output.getvalue().splitlines() == [
+        'd .F                             [100%]',
+        '',
+        '============== FAILURES ===============',
+        '__________________ b __________________',
+        'stdout diff:',
+        '+x',
+        '======= short test summary info =======',
+        'FAILED b - stdout diff:',
+        '===== 1 failed, 1 passed in 0.50s =====',
+    ]
+
+
+def test_reporter_verbose_shows_test_names():
+    tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')],
+                                            verbose=True)
+    run_reporter(tests, reporter, failing=['b'])
+    assert output.getvalue().splitlines()[:2] == [
+        'd::a PASSED                      [ 50%]',
+        'd::b FAILED                      [100%]',
+    ]
+
+
+def test_reporter_reports_no_tests():
+    tests, output, reporter = make_reporter([])
+    run_reporter(tests, reporter)
+    assert output.getvalue() == '======== no tests ran in 0.50s ========\n'
+
+
+def test_reporter_colors_output():
+    tests, output, reporter = make_reporter([('a', 'd/a')], color=True)
+    run_reporter(tests, reporter)
+    assert '\x1b[32m.\x1b[0m' in output.getvalue()
+
+
+def test_reporter_writes_no_colors_by_default():
+    tests, output, reporter = make_reporter([('a', 'd/a')])
+    run_reporter(tests, reporter)
+    assert '\x1b' not in output.getvalue()
 
 
 def test_manpage_documents_all_options():
