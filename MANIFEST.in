@@ -1,0 +1,3 @@
+include NEWS check lint .flake8
+graft tests/specs
+global-exclude *-actual *-diff
