@@ -9,3 +9,5 @@ flake8 cmdspecs setup.py tests/*.py
 shellcheck check lint \
     tests/specs/*/*.script tests/specs/*/*.setup \
     tests/specs/*/setup tests/specs/*/setup_once
+
+echo "lint: ok"
