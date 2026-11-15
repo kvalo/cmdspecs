@@ -32,9 +32,9 @@ For development (editable install):
 pip install -e .
 ```
 
-### System-wide Installation
+### Per-user Installation
 
-If you prefer system-wide installation:
+To install only for the current user:
 
 ```bash
 pip install --user .
