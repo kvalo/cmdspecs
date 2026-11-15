@@ -293,14 +293,14 @@ class CommandTester:
                                 stdout_diff_name)
         if stdout_diff:
             errors.append(TestFailure(test,
-                                      'stdout diff:\n%s\n' % stdout_diff))
+                                      'stdout diff:\n%s' % stdout_diff))
 
         stderr_diff_name = test.path_prefix + '.stderr-diff'
         stderr_diff = self.diff(test.stderr or '/dev/null', stderr_name,
                                 stderr_diff_name)
         if stderr_diff:
             errors.append(TestFailure(test,
-                                      'stderr diff:\n%s\n' % stderr_diff))
+                                      'stderr diff:\n%s' % stderr_diff))
 
         contents = cat(test.exit or '/dev/null')
         expected_exit = int(contents.strip() or '0')
@@ -334,14 +334,15 @@ class CommandTester:
         except FileNotFoundError:
             actual_lines = []
 
-        # Generate unified diff with proper line termination
-        diff_lines = list(difflib.unified_diff(
+        # The input lines have no newlines, so generate the diff without
+        # them and terminate every line afterwards
+        diff_lines = [line + '\n' for line in difflib.unified_diff(
             expected_lines,
             actual_lines,
             fromfile=expected_name,
             tofile=actual_name,
-            lineterm='\n'
-        ))
+            lineterm=''
+        )]
 
         # Add timestamps to headers to match diff -u behavior
         if diff_lines:

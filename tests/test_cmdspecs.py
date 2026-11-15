@@ -94,3 +94,14 @@ def test_run_test_reports_actual_exit_code(tmp_path):
     errors = tester.run_test(td.tests[0])
     assert [str(e) for e in errors] == \
         ['FAIL: foo: got exit code 3, expected 0']
+
+
+def test_diff_puts_each_line_on_its_own_line(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('broken\n')
+    actual = tmp_path / 'actual'
+    actual.write_text('hello\n')
+    diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
+                                         str(tmp_path / 'diff'))
+    assert diff.splitlines()[2:] == ['@@ -1 +1 @@', '-broken', '+hello']
+    assert diff.endswith('\n')
