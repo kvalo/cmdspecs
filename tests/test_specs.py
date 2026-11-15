@@ -4,6 +4,7 @@
 # cmdspecs writes its -actual and -diff files next to the specs.
 
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -122,13 +123,30 @@ def test_reports_missing_script(tmp_path):
     assert 'Traceback' not in result.stderr
 
 
-@pytest.mark.xfail(strict=True, reason='failing setup raises an exception')
 def test_reports_failing_setup(tmp_path):
     write_script(tmp_path / 'setup', 'exit 1\n')
     write_script(tmp_path / 'foo.script', '')
+    write_script(tmp_path / 'bar.script', '')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAIL: foo: %s: exited with 1' % (tmp_path / 'setup') \
+        in result.stdout
+    assert '0/2 tests OK, 2 failures' in result.stdout
     assert 'Traceback' not in result.stderr
+
+
+def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
+    write_script(tmp_path / 'setup_once', 'exit 2\n')
+    write_script(tmp_path / 'foo.script', '')
+    tmpdir = tmp_path / 'tmp'
+    tmpdir.mkdir()
+    result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
+                            env={**os.environ, 'TMPDIR': str(tmpdir)},
+                            capture_output=True, text=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stderr == 'cmdspecs: %s: exited with 2\n' % \
+        (tmp_path / 'setup_once')
+    assert list(tmpdir.iterdir()) == []
 
 
 @pytest.mark.xfail(strict=True, reason='error running script is hidden')
