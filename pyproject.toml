@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cmdspecs"
 version = "0.33"
-description = "blackbox testing of Unix command line tools"
-readme = "README"
+description = "black box testing of Unix command line tools"
+readme = {file = "README", content-type = "text/markdown"}
 license = "GPL-3.0-or-later"
 authors = [
     {name = "Lars Wirzenius", email = "liw@liw.fi"},
