@@ -41,6 +41,18 @@ pip install --user .
 ```
 
 
+Manual page
+-----------
+
+The manual page source is `cmdspecs.1`, which `pip install` installs
+under `share/man/man1`. To read it from the source tree without
+installing:
+
+```bash
+man -l cmdspecs.1
+```
+
+
 Legalese
 --------
 
