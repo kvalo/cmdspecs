@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright 2025-2026  Kalle Valo
+#
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Run unit and integration tests. Arguments are passed to pytest.

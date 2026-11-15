@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright 2026  Kalle Valo
+#
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Run linters. Requires flake8, shellcheck and groff.
