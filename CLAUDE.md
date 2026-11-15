@@ -17,12 +17,8 @@ working with code in this repository.
   (`python3 -m unittest discover -p '*tests.py'`), then
   `./cmdspecs echo-tests`, `./cmdspecs sort-tests`, and finally
   `fail-tests`, which is *expected* to fail.
-- The unit tests are currently broken: `cmdspecslib_tests.py` imports
-  from `cmdspecslib`, a module that no longer exists (`TestDir` and
-  `cat` now live in the `cmdspecs` script). Because `./check` uses
-  `set -e`, it stops there. Until that is fixed, run the suites
-  directly:
-  `./cmdspecs echo-tests && ./cmdspecs sort-tests && ! ./cmdspecs fail-tests`
+- `cmdspecslib_tests.py` loads the `cmdspecs` script with `importlib`
+  because it has no `.py` extension; there is no `cmdspecslib` module.
 - A test dir contains `<name>.script` plus optional `.stdin`,
   `.stdout`, `.stderr`, `.exit`, `.setup` and `.teardown` files, along
   with dir-level `setup`, `setup_once`, `teardown` and `teardown_once`
