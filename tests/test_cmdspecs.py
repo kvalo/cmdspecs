@@ -23,7 +23,8 @@ import unittest
 
 
 # cmdspecs is a script without a .py extension, so load it explicitly.
-_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cmdspecs')
+_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
+                     'cmdspecs')
 _loader = importlib.machinery.SourceFileLoader('cmdspecs', _path)
 _spec = importlib.util.spec_from_loader('cmdspecs', _loader)
 cmdspecs = importlib.util.module_from_spec(_spec)

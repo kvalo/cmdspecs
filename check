@@ -4,13 +4,13 @@
 
 set -eu
 
-python3 -m unittest discover -p '*tests.py'
+python3 -m unittest discover -s tests
 
-./cmdspecs echo-tests
+./cmdspecs tests/specs/echo
 
-./cmdspecs sort-tests
+./cmdspecs tests/specs/sort
 
-if ./cmdspecs fail-tests; then
+if ./cmdspecs tests/specs/fail; then
     echo "fail-tests did not fail!"
     exit 1
 fi

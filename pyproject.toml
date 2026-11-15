@@ -42,7 +42,7 @@ script-files = ["cmdspecs"]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-exclude = ["echo-tests*", "fail-tests*", "sort-tests*", "test-*"]
+exclude = ["tests*"]
 
 [tool.setuptools.package-data]
 cmdspecs = ["*.1"]

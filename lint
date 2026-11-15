@@ -4,9 +4,8 @@
 
 set -eu
 
-flake8 cmdspecs cmdspecslib_tests.py setup.py
+flake8 cmdspecs setup.py tests/*.py
 
 shellcheck check lint shell-lib.sh \
-    echo-tests/setup_once echo-tests/*.script echo-tests/*.setup \
-    sort-tests/setup sort-tests/setup_once sort-tests/*.script \
-    sort-tests/*.setup fail-tests/*.script
+    tests/specs/*/*.script tests/specs/*/*.setup \
+    tests/specs/*/setup tests/specs/*/setup_once
