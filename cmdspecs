@@ -17,7 +17,6 @@
 
 import argparse
 import difflib
-import glob
 import logging
 import os
 import shutil
@@ -236,8 +235,10 @@ class CommandTester:
     def find_requested_tests(self, dirname):
         filenames = []
         for test in self.settings['test']:
-            matches = glob.glob(os.path.join(dirname, test + '.*'))
-            filenames += [os.path.basename(x) for x in matches]
+            for suffix in TestDir.per_test_suffixes:
+                filename = '%s.%s' % (test, suffix)
+                if os.path.exists(os.path.join(dirname, filename)):
+                    filenames.append(filename)
 
         basenames = ['setup_once', 'setup', 'teardown', 'teardown_once']
         for basename in basenames:

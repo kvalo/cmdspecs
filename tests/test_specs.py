@@ -168,7 +168,6 @@ def test_reports_non_utf8_output(tmp_path):
     assert 'Traceback' not in result.stderr
 
 
-@pytest.mark.xfail(strict=True, reason='-t foo matches foo.bar.* too')
 def test_test_option_matches_exact_name(tmp_path):
     write_script(tmp_path / 'foo.script', '')
     write_script(tmp_path / 'foo.bar.script', '')
