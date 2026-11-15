@@ -278,16 +278,16 @@ Version 0.6, released 2013-03-14
 Version 0.5, released 2012-09-29
 --------------------------------
 
-* Version 0.4 may or may not have released. If it was, it should have had
-  internal changes only.
+* Version 0.4 may or may not have released. If it was, it should have
+  had internal changes only.
 * Add missing copy of GPLv3. Reported by Michel Alexandre Salim.
 
 Version 0.3, released 2012-02-24
 --------------------------------
 
 * Add `--keep` option to keep the temporary directory for failed tests.
-* Add `--timings` option to show timings for various tests. Good for when
-  test suites start getting slow and you want to speed them up.
+* Add `--timings` option to show timings for various tests. Good for
+  when test suites start getting slow and you want to speed them up.
 
 Version 0.2, released 2012-02-18
 --------------------------------

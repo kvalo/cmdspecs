@@ -114,8 +114,8 @@ all of these files are optional.
 If a setup or teardown script is missing, it is simply not executed. 
 If one of the standard input, output, or error files is missing, 
 it is treated as if it were empty. 
-If the exit code file is missing, it is treated as if it specified an exit
-code of zero.
+If the exit code file is missing, it is treated as if it specified an
+exit code of zero.
 .PP
 The shell scripts may use the following environment variables:
 .TP
