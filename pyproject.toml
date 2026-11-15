@@ -33,6 +33,9 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = []
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.urls]
 Homepage = "http://liw.fi/cmdtest/"
 Repository = "http://liw.fi/cmdtest/"
@@ -49,3 +52,6 @@ cmdspecs = ["*.1"]
 
 [tool.setuptools.data-files]
 "share/man/man1" = ["cmdspecs.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

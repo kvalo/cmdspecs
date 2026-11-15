@@ -10,6 +10,9 @@ BDD-style testing tool that was developed alongside cmdtest.
 Version 0.32+git, not yet released
 ----------------------------------
 
+* The project's own tests now live under `tests/` and run with
+  pytest via `./check`, which ends with a single pass/fail summary.
+
 * Undo HTML escaping of code blocks done by the Python Markdown
   parser.
 

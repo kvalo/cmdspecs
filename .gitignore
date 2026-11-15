@@ -3,3 +3,5 @@
 /cmdspecs.1
 /cmdspecs.egg-info
 /dist
+.pytest_cache/
+__pycache__/

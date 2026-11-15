@@ -1,16 +1,5 @@
 #!/bin/sh
 #
-# Run unit and integration tests.
+# Run unit and integration tests. Arguments are passed to pytest.
 
-set -eu
-
-python3 -m unittest discover -s tests
-
-./cmdspecs tests/specs/echo
-
-./cmdspecs tests/specs/sort
-
-if ./cmdspecs tests/specs/fail; then
-    echo "fail-tests did not fail!"
-    exit 1
-fi
+exec python3 -m pytest "$@"
