@@ -10,4 +10,7 @@ python3 -m unittest discover -p '*tests.py'
 
 ./cmdspecs sort-tests
 
-./cmdspecs fail-tests && echo "fail-tests did not fail!" && exit 1
+if ./cmdspecs fail-tests; then
+    echo "fail-tests did not fail!"
+    exit 1
+fi
