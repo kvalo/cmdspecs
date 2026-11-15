@@ -16,6 +16,7 @@
 
 import importlib.machinery
 import importlib.util
+import io
 from pathlib import Path
 
 
@@ -223,3 +224,51 @@ def test_find_requested_tests_includes_dir_scripts(tmp_path):
     filenames = tester.find_requested_tests(str(tmp_path))
     assert sorted(filenames) == ['foo.script', 'foo.stdout', 'setup',
                                  'teardown_once']
+
+
+class FakeTerminal(io.StringIO):
+
+    def isatty(self):
+        return True
+
+
+def make_status(output, names):
+    tests = [cmdspecs.TestCase(name, name) for name in names]
+    return tests, cmdspecs.SimpleTerminalStatus(tests, output)
+
+
+def test_status_shows_test_number_and_name():
+    output = FakeTerminal()
+    tests, ts = make_status(output, ['foo', 'bar'])
+    ts['test'] = tests[1]
+    ts['test-name'] = 'bar'
+    assert output.getvalue() == '\rtest 2/2: bar'
+
+
+def test_status_overwrites_longer_previous_line():
+    output = FakeTerminal()
+    tests, ts = make_status(output, ['foobar', 'x'])
+    for test in tests:
+        ts['test'] = test
+        ts['test-name'] = test.name
+    assert output.getvalue() == ('\rtest 1/2: foobar'
+                                 '\rtest 2/2: x     ')
+
+
+def test_status_finish_wipes_line():
+    output = FakeTerminal()
+    tests, ts = make_status(output, ['foo'])
+    ts['test'] = tests[0]
+    ts['test-name'] = 'foo'
+    ts.finish()
+    assert output.getvalue() == '\rtest 1/1: foo\r' + ' ' * 13 + '\r'
+
+
+def test_status_writes_nothing_when_not_a_terminal():
+    output = io.StringIO()
+    tests, ts = make_status(output, ['foo'])
+    ts['test'] = tests[0]
+    ts['test-name'] = 'foo'
+    ts.clear()
+    ts.finish()
+    assert output.getvalue() == ''

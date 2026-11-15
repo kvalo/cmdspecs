@@ -111,24 +111,50 @@ class ScriptError(Exception):
 
 
 class SimpleTerminalStatus:
-    """Simple replacement for ttystatus.TerminalStatus"""
+    """Simple replacement for ttystatus.TerminalStatus
 
-    def __init__(self, tests):
+    Show which test is running on a single line that gets overwritten,
+    but only if output is a terminal.
+
+    """
+
+    def __init__(self, tests, output):
         self.tests = tests
+        self.output = output
         self.current_test = None
         self.test_name = None
+        self.enabled = output.isatty()
+        self.shown = ''
 
     def __setitem__(self, key, value):
         if key == 'test':
             self.current_test = value
         elif key == 'test-name':
             self.test_name = value
+            self.show()
+
+    def show(self):
+        if not self.enabled:
+            return
+        index = self.tests.index(self.current_test) + 1
+        text = 'test %d/%d: %s' % (index, len(self.tests), self.test_name)
+        # A line that wraps can't be overwritten with \r, so keep it
+        # narrower than the terminal.
+        width = shutil.get_terminal_size().columns - 1
+        text = text[:width]
+        self.output.write('\r' + text.ljust(len(self.shown)))
+        self.output.flush()
+        self.shown = text
 
     def clear(self):
-        pass  # No-op for simple implementation
+        if not self.enabled or not self.shown:
+            return
+        self.output.write('\r' + ' ' * len(self.shown) + '\r')
+        self.output.flush()
+        self.shown = ''
 
     def finish(self):
-        pass  # No-op for simple implementation
+        self.clear()
 
 
 class CommandTester:
@@ -172,6 +198,7 @@ class CommandTester:
         try:
             errors = self.run_tests(td)
         except ScriptError as e:
+            self.ts.finish()
             self.cleanup_tempdir()
             sys.exit('cmdspecs: %s' % e)
 
@@ -220,7 +247,7 @@ class CommandTester:
 
     def setup_ttystatus(self, td):
         # Simple progress reporting instead of ttystatus
-        self.ts = SimpleTerminalStatus(td.tests)
+        self.ts = SimpleTerminalStatus(td.tests, self.output)
 
     def load_tests(self, dirnames):
         td = TestDir()
