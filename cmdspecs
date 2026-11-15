@@ -308,7 +308,7 @@ class CommandTester:
         if exit_code != expected_exit:
             errors.append(TestFailure(test,
                                       'got exit code %s, expected %s' %
-                                      (exit, expected_exit)))
+                                      (exit_code, expected_exit)))
 
         if not errors:
             os.remove(stdout_name)
