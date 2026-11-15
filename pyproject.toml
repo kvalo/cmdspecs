@@ -22,8 +22,7 @@ dependencies = []
 test = ["pytest"]
 
 [project.urls]
-Homepage = "http://liw.fi/cmdtest/"
-Repository = "http://liw.fi/cmdtest/"
+"Original cmdtest" = "https://liw.fi/cmdtest/"
 
 [tool.setuptools]
 script-files = ["cmdspecs"]
