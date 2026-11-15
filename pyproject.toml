@@ -24,12 +24,11 @@ test = ["pytest"]
 [project.urls]
 "Original cmdtest" = "https://liw.fi/cmdtest/"
 
+# cmdspecs is a single script with no package, so ship it with
+# script-files and the manpage with data-files.
 [tool.setuptools]
+packages = []
 script-files = ["cmdspecs"]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
 
 [tool.setuptools.data-files]
 "share/man/man1" = ["cmdspecs.1"]
