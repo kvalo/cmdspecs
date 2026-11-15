@@ -169,9 +169,11 @@ class CommandTester:
             self.ts['test'] = test
             self.ts['test-name'] = test.name
             self.run_script(test.name, td.setup)
-            for e in self.run_test(test):
+            failures = self.run_test(test)
+            for e in failures:
                 self.ts.clear()
                 self.output.write('%s\n' % str(e))
+            if failures:
                 errors += 1
             self.run_script(test.name, td.teardown)
             self.timings[test.name][COMPLETE_TEST] = time.time() - started

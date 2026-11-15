@@ -107,7 +107,6 @@ def test_success_leaves_no_output_files(tmp_path):
     assert sorted(spec.iterdir()) == before
 
 
-@pytest.mark.xfail(strict=True, reason='counts failures, not failed tests')
 def test_counts_failed_tests_not_failures(tmp_path):
     write_script(tmp_path / 'foo.script', 'echo unexpected\nexit 3\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
