@@ -32,9 +32,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 exclude = ["tests*"]
 
-[tool.setuptools.package-data]
-cmdspecs = ["*.1"]
-
 [tool.setuptools.data-files]
 "share/man/man1" = ["cmdspecs.1"]
 

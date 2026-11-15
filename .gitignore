@@ -1,6 +1,5 @@
 *.py[co]
 /build
-/cmdspecs.1
 /cmdspecs.egg-info
 /dist
 .pytest_cache/

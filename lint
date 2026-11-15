@@ -4,7 +4,7 @@
 
 set -eu
 
-flake8 cmdspecs setup.py tests/*.py
+flake8 cmdspecs tests/*.py
 
 shellcheck check lint \
     tests/specs/*/*.script tests/specs/*/*.setup \

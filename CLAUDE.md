@@ -8,12 +8,12 @@ working with code in this repository.
 - `cmdspecs` is the whole program: a single executable Python 3
   script with no `.py` extension and no package. There are no runtime
   dependencies.
-- `cmdspecs.1.in` is the manpage source. The build copies it to
-  `cmdspecs.1`, which is gitignored, so edit the `.in` file.
-- `pyproject.toml` holds the packaging metadata. `setup.py` only adds
-  the manpage build and clean commands. cmdspecs is not published on
-  PyPI and won't be, so don't add PyPI-only metadata (classifiers,
-  keywords) or `pip install cmdspecs` instructions.
+- `cmdspecs.1` is the manpage. Edit it directly; nothing generates
+  it. View it with `man -l cmdspecs.1`.
+- `pyproject.toml` holds all the packaging metadata, and there is no
+  `setup.py`. cmdspecs is not published on PyPI and won't be, so don't
+  add PyPI-only metadata (classifiers, keywords) or
+  `pip install cmdspecs` instructions.
 
 ## Testing
 
