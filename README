@@ -40,6 +40,20 @@ To install only for the current user:
 pip install --user .
 ```
 
+### Copying the Script
+
+`cmdspecs` is a single Python 3 script with no dependencies beyond
+the standard library, so you can also install it by copying it to a
+directory in your `PATH`:
+
+```bash
+install -m 755 cmdspecs ~/.local/bin/
+```
+
+This does not install the manual page; read it with
+`man -l cmdspecs.1` or copy it to a `man1` directory in your
+`MANPATH`.
+
 
 Manual page
 -----------
