@@ -38,5 +38,6 @@ def test_failing_spec_reports_diff(tmp_path):
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'FAIL: fail: stdout diff' in result.stdout
+    assert 'FAIL' not in result.stderr
     assert '0/1 tests OK, 1 failures' in result.stdout
     assert (spec / 'fail.stdout-actual').exists()

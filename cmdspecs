@@ -170,7 +170,6 @@ class CommandTester:
             self.ts['test-name'] = test.name
             self.run_script(test.name, td.setup)
             for e in self.run_test(test):
-                logging.error(str(e))
                 self.ts.clear()
                 self.output.write('%s\n' % str(e))
                 errors += 1
