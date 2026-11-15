@@ -1,14 +1,14 @@
 NEWS for cmdspecs
 =================
 
-This file summarizes changes between releases of cmdtest.
+This file summarizes changes between releases of cmdspecs.
 
 Note: The yarn tool and its associated libraries (yarnlib, yarnutils)
 have been removed from this project as of version 0.33. Yarn was a
 BDD-style testing tool that was developed alongside cmdtest.
 
-Version 0.32+git, not yet released
-----------------------------------
+Version 0.33, not yet released
+------------------------------
 
 * The output now looks like pytest's: a header, a dot (or `F`) per
   test on a line per test directory, the failures at the end, and a
