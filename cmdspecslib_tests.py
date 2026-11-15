@@ -29,6 +29,7 @@ _spec = importlib.util.spec_from_loader('cmdspecs', _loader)
 cmdspecs = importlib.util.module_from_spec(_spec)
 _loader.exec_module(cmdspecs)
 
+CommandTester = cmdspecs.CommandTester
 TestDir = cmdspecs.TestDir
 cat = cmdspecs.cat
 
@@ -95,3 +96,25 @@ class CatTests(unittest.TestCase):
         with open(filename, 'w') as f:
             f.write('foobar')
         self.assertEqual(cat(filename), 'foobar')
+
+
+class RunTestTests(unittest.TestCase):
+
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.tester = CommandTester()
+        self.tester.datadir = self.tempdir
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_reports_actual_exit_code(self):
+        script = os.path.join(self.tempdir, 'foo.script')
+        with open(script, 'w') as f:
+            f.write('#!/bin/sh\nexit 3\n')
+        os.chmod(script, 0o755)
+        td = TestDir()
+        td.scan(self.tempdir)
+        errors = self.tester.run_test(td.tests[0])
+        self.assertEqual([str(e) for e in errors],
+                         ['FAIL: foo: got exit code 3, expected 0'])
