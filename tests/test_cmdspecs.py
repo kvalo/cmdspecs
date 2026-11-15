@@ -202,6 +202,18 @@ def test_diff_compares_bytes(tmp_path):
     assert diff.splitlines()[2:] == ['@@ -1 +1 @@', '-\\xff', '+\\xff']
 
 
+def test_diff_reports_missing_newline_at_end(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('hello\n')
+    actual = tmp_path / 'actual'
+    actual.write_text('hello')
+    diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
+                                         str(tmp_path / 'diff'))
+    assert diff.splitlines()[2:] == ['@@ -1 +1 @@', '-hello', '+hello',
+                                     '\\ No newline at end of file']
+    assert diff.endswith('\n')
+
+
 def test_find_requested_tests_includes_dir_scripts(tmp_path):
     for name in ['foo.script', 'foo.stdout', 'bar.script', 'setup',
                  'teardown_once']:
