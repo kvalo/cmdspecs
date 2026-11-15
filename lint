@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Run linters. Requires flake8 and shellcheck.
+# Run linters. Requires flake8, shellcheck and groff.
 
 set -eu
 
@@ -11,5 +11,12 @@ shellcheck check lint \
     tests/specs/*/*.teardown \
     tests/specs/*/setup tests/specs/*/setup_once \
     tests/specs/*/teardown tests/specs/*/teardown_once
+
+# groff exits with 0 even when it warns, so fail on any output.
+warnings=$(groff -man -ww -z cmdspecs.1 2>&1)
+if [ -n "$warnings" ]; then
+    echo "$warnings"
+    exit 1
+fi
 
 echo "lint: ok"

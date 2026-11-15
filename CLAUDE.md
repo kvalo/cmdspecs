@@ -26,10 +26,11 @@ working with code in this repository.
   `tests/specs/`. It copies each dir to `tmp_path` first so the repo
   stays clean. `tests/specs/fail` is *expected* to fail, and the test
   asserts that cmdspecs reports it.
-- `./lint` runs flake8 (config in `.flake8`) and shellcheck. It is
-  separate from `./check` because those tools are optional. When you
-  add a new script, add it to the file list in `./lint`, because
-  `cmdspecs` and the test scripts have no file extensions to glob on.
+- `./lint` runs flake8 (config in `.flake8`), shellcheck, and groff
+  to check the manpage for warnings. It is separate from `./check`
+  because those tools are optional. When you add a new script, add it
+  to the file list in `./lint`, because `cmdspecs` and the test
+  scripts have no file extensions to glob on.
 - `tests/test_cmdspecs.py` loads the `cmdspecs` script with
   `importlib` because it has no `.py` extension.
 - `test_manpage_documents_all_options` fails if an option from
