@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Run linters. Requires flake8 and shellcheck.
+
+set -eu
+
+flake8 cmdspecs cmdspecslib_tests.py setup.py
+
+shellcheck check lint shell-lib.sh \
+    echo-tests/setup_once echo-tests/*.script echo-tests/*.setup \
+    sort-tests/setup sort-tests/setup_once sort-tests/*.script \
+    sort-tests/*.setup fail-tests/*.script

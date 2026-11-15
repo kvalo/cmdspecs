@@ -17,6 +17,10 @@ working with code in this repository.
   (`python3 -m unittest discover -p '*tests.py'`), then
   `./cmdspecs echo-tests`, `./cmdspecs sort-tests`, and finally
   `fail-tests`, which is *expected* to fail.
+- `./lint` runs flake8 (config in `.flake8`) and shellcheck. It is
+  separate from `./check` because those tools are optional. When you
+  add a new script, add it to the file list in `./lint`, because
+  `cmdspecs` and the test scripts have no file extensions to glob on.
 - `cmdspecslib_tests.py` loads the `cmdspecs` script with `importlib`
   because it has no `.py` extension; there is no `cmdspecslib` module.
 - A test dir contains `<name>.script` plus optional `.stdin`,
