@@ -3,12 +3,17 @@ NEWS for cmdspecs
 
 This file summarizes changes between releases of cmdspecs.
 
-Note: The yarn tool and its associated libraries (yarnlib, yarnutils)
-have been removed from this project as of version 0.33. Yarn was a
-BDD-style testing tool that was developed alongside cmdtest.
+Version 0.33, released 2026-11-15
+---------------------------------
 
-Version 0.33, not yet released
-------------------------------
+* Forked from cmdtest and renamed to cmdspecs.
+  URL: https://deb.debian.org/debian/pool/main/c/cmdtest/cmdtest_0.32.14.gcdfe14e.orig.tar.xz
+
+* Replaced cliapp and ttystatus package dependencies with argparse and subprocess.
+
+* The yarn tool and its associated libraries (yarnlib, yarnutils) have
+  been removed from this project as of version 0.33. Yarn was a
+  BDD-style testing tool that was developed alongside cmdtest.
 
 * The output now looks like pytest's: a header, a dot (or `F`) per
   test on a line per test directory, the failures at the end, and a
