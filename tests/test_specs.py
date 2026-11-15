@@ -149,12 +149,14 @@ def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
     assert list(tmpdir.iterdir()) == []
 
 
-@pytest.mark.xfail(strict=True, reason='error running script is hidden')
 def test_reports_non_executable_script(tmp_path):
-    (tmp_path / 'foo.script').write_text('#!/bin/sh\n')
+    script = tmp_path / 'foo.script'
+    script.write_text('#!/bin/sh\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert 'Permission denied' in result.stdout
+    assert result.stdout == ('FAIL: foo: could not run %s: '
+                             'Permission denied\n'
+                             '0/1 tests OK, 1 failures\n' % script)
 
 
 @pytest.mark.xfail(strict=True, reason='diff() reads output as UTF-8')

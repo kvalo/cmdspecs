@@ -298,6 +298,7 @@ class CommandTester:
                 else:
                     stdin = None
                 env = self.add_to_env(test.name)
+                run_error = None
                 try:
                     result = subprocess.run(argv,
                                             env=env,
@@ -306,13 +307,18 @@ class CommandTester:
                                             stderr=stderr,
                                             check=False)
                     exit_code = result.returncode
-                except Exception:
-                    # Handle cases where subprocess.run fails
-                    exit_code = 1
+                except OSError as e:
+                    run_error = e
                 if stdin is not None:
                     stdin.close()
 
         self.run_script(test.name, test.teardown)
+
+        if run_error:
+            # Comparing output and exit code is pointless when the
+            # script never ran.
+            return [TestFailure(test, 'could not run %s: %s' %
+                                (test.script, run_error.strerror))]
 
         errors = []
 
