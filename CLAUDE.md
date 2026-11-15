@@ -9,7 +9,8 @@ working with code in this repository.
   script with no `.py` extension and no package. There are no runtime
   dependencies.
 - `cmdspecs.1` is the manpage. Edit it directly; nothing generates
-  it. View it with `man -l cmdspecs.1`.
+  it. View it with `man -l cmdspecs.1`. When you add or change a
+  command line option, update its SYNOPSIS and OPTIONS sections.
 - `pyproject.toml` holds all the packaging metadata, and there is no
   `setup.py`. cmdspecs is not published on PyPI and won't be, so don't
   add PyPI-only metadata (classifiers, keywords) or
@@ -31,6 +32,9 @@ working with code in this repository.
   `cmdspecs` and the test scripts have no file extensions to glob on.
 - `tests/test_cmdspecs.py` loads the `cmdspecs` script with
   `importlib` because it has no `.py` extension.
+- `test_manpage_documents_all_options` fails if an option from
+  `CommandTester.make_parser()` is missing from the manpage's OPTIONS
+  section.
 - A test dir contains `<name>.script` plus optional `.stdin`,
   `.stdout`, `.stderr`, `.exit`, `.setup` and `.teardown` files, along
   with dir-level `setup`, `setup_once`, `teardown` and `teardown_once`

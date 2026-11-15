@@ -159,26 +159,29 @@ class SimpleTerminalStatus:
 
 class CommandTester:
 
-    def run(self, argv=None):
-        self.parser = argparse.ArgumentParser(
+    def make_parser(self):
+        parser = argparse.ArgumentParser(
             description='blackbox testing of Unix command line tools',
             prog='cmdspecs'
         )
-        self.parser.add_argument('-c', '--command',
-                                 help='ignored for backwards compatibility')
-        self.parser.add_argument('-t', '--test', action='append',
-                                 help='run only TEST '
-                                      '(can be given many times)',
-                                 metavar='TEST')
-        self.parser.add_argument('--timings', action='store_true',
-                                 help='report how long each test takes')
-        self.parser.add_argument('-k', '--keep', action='store_true',
-                                 help='keep temporary data on failure')
-        self.parser.add_argument('dirnames', nargs='+',
-                                 help='directories containing tests')
+        parser.add_argument('-c', '--command',
+                            help='ignored for backwards compatibility')
+        parser.add_argument('-t', '--test', action='append',
+                            help='run only TEST '
+                                 '(can be given many times)',
+                            metavar='TEST')
+        parser.add_argument('--timings', action='store_true',
+                            help='report how long each test takes')
+        parser.add_argument('-k', '--keep', action='store_true',
+                            help='keep temporary data on failure')
+        parser.add_argument('dirnames', nargs='+',
+                            help='directories containing tests')
+        return parser
+
+    def run(self, argv=None):
         self.output = sys.stdout
 
-        args = self.parser.parse_args(argv)
+        args = self.make_parser().parse_args(argv)
 
         self.timings = {}
         self.timings[ALL_TESTS] = {}

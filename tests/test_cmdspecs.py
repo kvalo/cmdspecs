@@ -272,3 +272,12 @@ def test_status_writes_nothing_when_not_a_terminal():
     ts.clear()
     ts.finish()
     assert output.getvalue() == ''
+
+
+def test_manpage_documents_all_options():
+    manpage = Path(_path).with_name('cmdspecs.1').read_text()
+    options = manpage.split('\n.SH OPTIONS\n')[1].split('\n.SH ')[0]
+    parser = cmdspecs.CommandTester().make_parser()
+    for action in parser._actions:
+        for option in action.option_strings:
+            assert option.replace('-', '\\-') in options, option
