@@ -14,12 +14,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import importlib.machinery
+import importlib.util
 import os
 import shutil
 import tempfile
 import unittest
 
-from cmdspecslib import TestDir, cat
+
+# cmdspecs is a script without a .py extension, so load it explicitly.
+_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cmdspecs')
+_loader = importlib.machinery.SourceFileLoader('cmdspecs', _path)
+_spec = importlib.util.spec_from_loader('cmdspecs', _loader)
+cmdspecs = importlib.util.module_from_spec(_spec)
+_loader.exec_module(cmdspecs)
+
+TestDir = cmdspecs.TestDir
+cat = cmdspecs.cat
 
 
 class TestDirTests(unittest.TestCase):
