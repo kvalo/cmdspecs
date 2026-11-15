@@ -52,7 +52,7 @@ a shell script to run after test
 Usually, a single test is not enough. All tests are put into the
 same directory, and they may share some setup and teardown code:
 .TP
-.I setup-once
+.I setup_once
 a shell script to run once, before any tests
 .TP
 .I setup
@@ -61,7 +61,7 @@ a shell script to run before each test
 .I teardown
 a shell script to run after each test
 .TP
-.I teardown-once
+.I teardown_once
 a shell script to run once, after all tests
 .PP
 .B cmdspecs
@@ -71,7 +71,7 @@ or several such directories, and it does the following:
 .na
 .nh
 \(bu execute
-.I setup-once
+.I setup_once
 .PP
 \(bu for each test case (unique prefix 
 .IR foo ):
@@ -106,7 +106,7 @@ and standard error match
 .hy
 .PP
 \(bu execute 
-.I teardown-once
+.I teardown_once
 .PP
 Except for
 .IR foo.script , 
@@ -124,9 +124,9 @@ a temporary directory where files may be created by the test
 .TP
 .B TESTNAME
 name of the current test (will be empty for 
-.B setup-once
+.B setup_once
 and
-.BR teardown-once )
+.BR teardown_once )
 .TP
 .B SRCDIR
 directory from which
