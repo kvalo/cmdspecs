@@ -114,11 +114,11 @@ def test_counts_failed_tests_not_failures(tmp_path):
     assert '0/1 tests OK, 1 failures' in result.stdout
 
 
-@pytest.mark.xfail(strict=True, reason='missing .script raises ValueError')
 def test_reports_missing_script(tmp_path):
     (tmp_path / 'foo.stdout').write_text('hello\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAIL: foo: missing foo.script' in result.stdout
     assert 'Traceback' not in result.stderr
 
 

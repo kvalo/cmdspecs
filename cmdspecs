@@ -256,12 +256,12 @@ class CommandTester:
     def run_test(self, test):
         logging.info('Test case: %s' % test.name)
 
+        if not test.script:
+            return [TestFailure(test, 'missing %s.script' % test.name)]
+
         self.run_script(test.name, test.setup)
 
-        if test.script:
-            argv = [test.script]
-        else:
-            raise ValueError('Must have a .script file for test')
+        argv = [test.script]
 
         stdout_name = test.path_prefix + '.stdout-actual'
         stderr_name = test.path_prefix + '.stderr-actual'
