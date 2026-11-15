@@ -32,21 +32,9 @@ For development (editable install):
 pip install -e .
 ```
 
-### From PyPI
-
-```bash
-pip install cmdspecs
-```
-
 ### System-wide Installation
 
 If you prefer system-wide installation:
-
-```bash
-python setup.py install
-```
-
-Or with pip:
 
 ```bash
 pip install --user .
