@@ -25,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import unittest
 
 
 def cat(filename):
@@ -278,7 +277,7 @@ class CommandTester:
                                           stderr=stderr,
                                           check=False)
                     exit_code = result.returncode
-                except Exception as e:
+                except Exception:
                     # Handle cases where subprocess.run fails
                     exit_code = 1
                 if stdin is not None:
