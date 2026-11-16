@@ -95,6 +95,21 @@ def test_each_dir_uses_its_own_hooks(tmp_path):
     ]
 
 
+def test_dirs_share_datadir(tmp_path):
+    # The manpage promises one DATADIR for the whole run, shared by all
+    # dirs and not emptied between them: a file written by a test in
+    # the first dir must still be there for a test in the second dir.
+    for name in ['one', 'two']:
+        (tmp_path / name).mkdir()
+    write_script(tmp_path / 'one' / 'write.script',
+                 'echo hello > "$DATADIR/file"\n')
+    write_script(tmp_path / 'two' / 'read.script', 'cat "$DATADIR/file"\n')
+    (tmp_path / 'two' / 'read.stdout').write_text('hello\n')
+    result = run_cmdspecs('one', 'two', cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ' 2 passed in ' in result.stdout
+
+
 def test_test_option_runs_only_named_test(tmp_path):
     echo = copy_spec('echo', tmp_path)
     sort = copy_spec('sort', tmp_path)
