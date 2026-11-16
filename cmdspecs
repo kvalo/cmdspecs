@@ -7,7 +7,6 @@
 
 import argparse
 import difflib
-import logging
 import os
 import platform
 import shutil
@@ -22,24 +21,25 @@ VERSION = '0.33+git'
 
 def cat(filename):
     '''Return contents of file, or empty string if it doesn't exist.'''
-    if os.path.exists(filename):
+    try:
         with open(filename) as f:
             return f.read()
-    else:
+    except FileNotFoundError:
         return ''
 
 
-class TestCase(object):
+class TestCase:
 
     def __init__(self, name, path_prefix):
         self.name = name
         self.path_prefix = path_prefix
 
 
-class TestDir(object):
+class TestDir:
 
     '''Contain information about a directory of test cases.'''
 
+    dir_scripts = ('setup_once', 'setup', 'teardown', 'teardown_once')
     per_test_suffixes = ('script', 'stdin', 'stdout', 'stderr',
                          'exit', 'setup', 'teardown')
 
@@ -53,8 +53,7 @@ class TestDir(object):
     def scan(self, dirname, filenames=None):
         filenames = os.listdir(dirname) if filenames is None else filenames
 
-        script_names = ['setup_once', 'setup', 'teardown', 'teardown_once']
-        for name in script_names:
+        for name in self.dir_scripts:
             if name in filenames:
                 full_path = os.path.join(dirname, name)
                 setattr(self, name, full_path)
@@ -79,7 +78,7 @@ class TestDir(object):
                 if filename.endswith(suffix):
                     prefix = filename[:-len(suffix)]
                     prefixes.add(prefix)
-        return sorted(list(prefixes))
+        return sorted(prefixes)
 
 
 ALL_TESTS = ''
@@ -114,12 +113,12 @@ CYAN = '36'
 
 class Reporter:
 
-    """Report test progress and results like pytest does.
+    '''Report test progress and results like pytest does.
 
     Without verbose, show a dot (or F) per test on a line per test
     directory. With verbose, show each test on a line of its own.
 
-    """
+    '''
 
     def __init__(self, output, verbose=False, color=False, width=None):
         self.output = output
@@ -277,7 +276,7 @@ class CommandTester:
 
         self.timings = {}
         self.timings[ALL_TESTS] = {}
-        suite_started = time.time()
+        suite_started = time.monotonic()
 
         # Convert args to dict-like access for compatibility
         self.settings = {
@@ -302,7 +301,7 @@ class CommandTester:
         if not keep_tempdir:
             self.cleanup_tempdir()
 
-        elapsed = time.time() - suite_started
+        elapsed = time.monotonic() - suite_started
         self.timings[ALL_TESTS][COMPLETE_TEST] = elapsed
 
         self.reporter.finish(failed, len(td.tests) - len(failed), elapsed)
@@ -322,7 +321,7 @@ class CommandTester:
         self.run_script(ALL_TESTS, td.setup_once)
         for test in td.tests:
             self.timings[test.name] = {}
-            started = time.time()
+            started = time.monotonic()
             self.reporter.test_started(test)
             try:
                 self.run_script(test.name, td.setup)
@@ -333,7 +332,7 @@ class CommandTester:
             self.reporter.test_finished(test, failures)
             if failures:
                 failed.append((test, failures))
-            self.timings[test.name][COMPLETE_TEST] = time.time() - started
+            self.timings[test.name][COMPLETE_TEST] = time.monotonic() - started
         self.run_script(ALL_TESTS, td.teardown_once)
         return failed
 
@@ -364,8 +363,7 @@ class CommandTester:
                 if os.path.exists(os.path.join(dirname, filename)):
                     filenames.append(filename)
 
-        basenames = ['setup_once', 'setup', 'teardown', 'teardown_once']
-        for basename in basenames:
+        for basename in TestDir.dir_scripts:
             filename = os.path.join(dirname, basename)
             if os.path.exists(filename):
                 filenames.append(basename)
@@ -374,19 +372,15 @@ class CommandTester:
 
     def setup_tempdir(self):
         self.tempdir = tempfile.mkdtemp()
-        logging.info('Temporary directory %s' % self.tempdir)
         self.datadir = os.path.join(self.tempdir, 'data')
         os.mkdir(self.datadir)
 
     def cleanup_tempdir(self):
-        logging.info('Removing temporary directory %s' % self.tempdir)
         shutil.rmtree(self.tempdir)
 
     def run_script(self, test_name, script_name):
-        logging.debug('run_script: test_name=%s script_name=%s' %
-                      (test_name, script_name))
         if script_name:
-            started = time.time()
+            started = time.monotonic()
             try:
                 subprocess.check_call([script_name],
                                       env=self.add_to_env(test_name))
@@ -395,7 +389,7 @@ class CommandTester:
                                   'exited with %d' % e.returncode)
             except OSError as e:
                 raise ScriptError(script_name, e.strerror)
-            self.timings[test_name][script_name] = time.time() - started
+            self.timings[test_name][script_name] = time.monotonic() - started
 
     def add_to_env(self, test_name):
         env = dict(os.environ)
@@ -405,8 +399,6 @@ class CommandTester:
         return env
 
     def run_test(self, test):
-        logging.info('Test case: %s' % test.name)
-
         if not test.script:
             return [TestFailure(test, 'missing %s.script' % test.name)]
 
