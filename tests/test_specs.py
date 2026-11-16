@@ -301,6 +301,22 @@ def test_reports_invalid_exit_file(tmp_path):
     assert 'Traceback' not in result.stderr
 
 
+def test_removes_work_area_with_read_only_dirs(tmp_path):
+    write_script(tmp_path / 'foo.script',
+                 'mkdir -p "$DATADIR/a/b"\n'
+                 'touch "$DATADIR/a/b/file"\n'
+                 'chmod 0 "$DATADIR/a/b"\n'
+                 'chmod a-w "$DATADIR/a"\n')
+    tmpdir = tmp_path / 'tmp'
+    tmpdir.mkdir()
+    result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
+                            env={**os.environ, 'TMPDIR': str(tmpdir)},
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ''
+    assert list(tmpdir.iterdir()) == []
+
+
 def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
     for name in ['one', 'two']:
         (tmp_path / name).mkdir()

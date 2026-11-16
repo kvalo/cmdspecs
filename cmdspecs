@@ -420,7 +420,18 @@ class CommandTester:
         os.mkdir(self.datadir)
 
     def cleanup_tempdir(self):
-        shutil.rmtree(self.tempdir)
+        # The tests may have left directories without permissions
+        # behind, and those can't be removed as is.
+        for dirpath, dirnames, _ in os.walk(self.tempdir):
+            for name in dirnames:
+                path = os.path.join(dirpath, name)
+                if not os.path.islink(path):
+                    with contextlib.suppress(OSError):
+                        os.chmod(path, 0o700)
+        shutil.rmtree(self.tempdir, ignore_errors=True)
+        if os.path.exists(self.tempdir):
+            sys.stderr.write('cmdspecs: could not remove %s\n' %
+                             self.tempdir)
 
     def run_script(self, script_name, test=None):
         '''Run a setup or teardown script, if there is one.
