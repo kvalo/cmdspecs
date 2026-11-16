@@ -7,7 +7,9 @@
 import importlib.machinery
 import importlib.util
 import io
+import os
 import re
+import time
 from pathlib import Path
 
 
@@ -172,7 +174,38 @@ def test_diff_returns_empty_string_for_identical_files(tmp_path):
     diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
                                          str(diff_name))
     assert diff == ''
-    assert diff_name.read_text() == ''
+    assert not diff_name.exists()
+
+
+def test_diff_removes_stale_diff_file(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('hello\n')
+    diff_name = tmp_path / 'diff'
+    diff_name.write_text('stale\n')
+    cmdspecs.CommandTester().diff(str(expected), str(expected),
+                                  str(diff_name))
+    assert not diff_name.exists()
+
+
+def test_diff_shows_timestamps_with_utc_offset(tmp_path):
+    expected = tmp_path / 'expected'
+    expected.write_text('broken\n')
+    actual = tmp_path / 'actual'
+    actual.write_text('hello\n')
+    os.utime(expected, (0, 86400))
+    diff = cmdspecs.CommandTester().diff(str(expected), str(actual),
+                                         str(tmp_path / 'diff'))
+    stamp = time.strftime('%Y-%m-%d %H:%M:%S.000000 %z',
+                          time.localtime(86400))
+    assert diff.splitlines()[0] == '--- %s\t%s' % (expected, stamp)
+
+
+def test_diff_writes_raw_bytes_to_diff_file(tmp_path):
+    actual = tmp_path / 'actual'
+    actual.write_bytes(b'\xff\n')
+    diff_name = tmp_path / 'diff'
+    cmdspecs.CommandTester().diff('/dev/null', str(actual), str(diff_name))
+    assert diff_name.read_bytes().endswith(b'\n+\xff\n')
 
 
 def test_diff_treats_missing_expected_file_as_empty(tmp_path):

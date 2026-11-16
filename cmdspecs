@@ -6,6 +6,8 @@
 
 
 import argparse
+import contextlib
+import datetime
 import difflib
 import os
 import platform
@@ -26,6 +28,31 @@ def cat(filename):
             return f.read()
     except FileNotFoundError:
         return ''
+
+
+def read_lines(filename):
+    '''Return lines of file as bytes, or [] if it doesn't exist.'''
+    try:
+        with open(filename, 'rb') as f:
+            return f.readlines()
+    except FileNotFoundError:
+        return []
+
+
+def remove(filename):
+    '''Remove file, if it exists.'''
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(filename)
+
+
+def mtime(filename):
+    '''Return modification time of file in the format of diff -u.'''
+    try:
+        timestamp = os.stat(filename).st_mtime
+    except OSError:
+        return b''
+    dt = datetime.datetime.fromtimestamp(timestamp).astimezone()
+    return dt.strftime('%Y-%m-%d %H:%M:%S.%f %z').encode()
 
 
 class TestCase:
@@ -463,75 +490,44 @@ class CommandTester:
         if not errors:
             os.remove(stdout_name)
             os.remove(stderr_name)
-            os.remove(stdout_diff_name)
-            os.remove(stderr_diff_name)
 
         return errors
 
     def diff(self, expected_name, actual_name, diff_name):
+        '''Write a diff of two files to a file and return it.
+
+        If the files don't differ, return an empty string and make
+        sure that there's no diff file.
+
+        '''
+
         # Compare bytes, as the output need not be valid UTF-8. Keep
         # the newlines, so that a missing one at the end is a difference.
-        try:
-            with open(expected_name, 'rb') as f:
-                expected_lines = f.readlines()
-        except FileNotFoundError:
-            expected_lines = []
+        expected_lines = read_lines(expected_name)
+        actual_lines = read_lines(actual_name)
+        if expected_lines == actual_lines:
+            remove(diff_name)
+            return ''
 
-        try:
-            with open(actual_name, 'rb') as f:
-                actual_lines = f.readlines()
-        except FileNotFoundError:
-            actual_lines = []
-
-        # Like diff -u, mark a last line without a newline. Show invalid
-        # UTF-8 as backslash escapes.
+        # Like diff -u, mark a last line without a newline.
         diff_lines = []
         for line in difflib.diff_bytes(difflib.unified_diff,
                                        expected_lines,
                                        actual_lines,
                                        fromfile=os.fsencode(expected_name),
                                        tofile=os.fsencode(actual_name),
+                                       fromfiledate=mtime(expected_name),
+                                       tofiledate=mtime(actual_name),
                                        lineterm=b'\n'):
             if not line.endswith(b'\n'):
                 line += b'\n\\ No newline at end of file\n'
-            diff_lines.append(line.decode('utf-8', 'backslashreplace'))
+            diff_lines.append(line)
 
-        # Add timestamps to headers to match diff -u behavior
-        if diff_lines:
-            # Get file modification times
-            expected_mtime = ''
-            actual_mtime = ''
-
-            try:
-                from datetime import datetime
-                expected_stat = os.stat(expected_name)
-                dt = datetime.fromtimestamp(expected_stat.st_mtime)
-                expected_mtime = dt.strftime('\t%Y-%m-%d %H:%M:%S.%f +0000')
-            except (OSError, FileNotFoundError):
-                expected_mtime = '\t2025-01-01 00:00:00.000000 +0000'
-
-            try:
-                from datetime import datetime
-                actual_stat = os.stat(actual_name)
-                dt = datetime.fromtimestamp(actual_stat.st_mtime)
-                actual_mtime = dt.strftime('\t%Y-%m-%d %H:%M:%S.%f +0000')
-            except (OSError, FileNotFoundError):
-                actual_mtime = '\t2025-01-01 00:00:00.000000 +0000'
-
-            # Replace the headers with timestamp versions
-            if diff_lines[0].startswith('--- '):
-                diff_lines[0] = (diff_lines[0].rstrip('\n') +
-                                 expected_mtime + '\n')
-            if len(diff_lines) > 1 and diff_lines[1].startswith('+++ '):
-                diff_lines[1] = (diff_lines[1].rstrip('\n') +
-                                 actual_mtime + '\n')
-
-        # Write diff to file
-        with open(diff_name, 'w') as f:
+        with open(diff_name, 'wb') as f:
             f.writelines(diff_lines)
 
-        # Return diff content as string
-        return ''.join(diff_lines)
+        # Show invalid UTF-8 as backslash escapes.
+        return b''.join(diff_lines).decode('utf-8', 'backslashreplace')
 
     def report_timings(self):
 
