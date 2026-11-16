@@ -45,25 +45,33 @@ the expected output to the standard error
 the expected exit code
 .TP
 .I foo.setup
-a shell script to run before the test
+a script to run before the test
 .TP
 .I foo.teardown
-a shell script to run after test
+a script to run after test
 .PP
 Usually, a single test is not enough. All tests are put into the
 same directory, and they may share some setup and teardown code:
 .TP
 .I setup_once
-a shell script to run once, before any tests
+a script to run once, before any tests
 .TP
 .I setup
-a shell script to run before each test
+a script to run before each test
 .TP
 .I teardown
-a shell script to run after each test
+a script to run after each test
 .TP
 .I teardown_once
-a shell script to run once, after all tests
+a script to run once, after all tests
+.PP
+The scripts are usually shell scripts, but any executable program
+will do.
+.B cmdspecs
+executes them directly, so they must have the execute permission set,
+and a script needs a
+.B #!\&
+line to choose its interpreter.
 .PP
 .B cmdspecs
 is given the name of the directory with all the tests,
@@ -136,10 +144,18 @@ If
 .I setup_once
 fails, no more tests are run.
 .PP
-The shell scripts may use the following environment variables:
+The scripts may use the following environment variables:
 .TP
 .B DATADIR
-a temporary directory where files may be created by the test
+a temporary directory where files may be created by the test.
+There is only one such directory for the whole run:
+all tests in all directories share it,
+and it is not emptied between tests.
+It is removed when
+.B cmdspecs
+exits, unless
+.B \-\-keep
+is used and a test fails.
 .TP
 .B TESTNAME
 name of the current test (will be empty for 
@@ -166,6 +182,13 @@ Report how long each test takes.
 .TP
 .BR \-k ", " \-\-keep
 Keep temporary data on failure.
+The temporary directory is then not removed, and its location is
+shown after the test summary on a line starting with
+.BR "Test work area:" .
+.B DATADIR
+is the
+.I data
+directory in it.
 .TP
 .BR \-v ", " \-\-verbose
 Show the name and result of each test on a line of its own,
@@ -192,6 +215,29 @@ Show the version number and exit.
 .TP
 .BR \-h ", " \-\-help
 Show a help message and exit.
+.SH "EXIT STATUS"
+.TP
+.B 0
+All tests passed.
+This is the exit status also when no tests were found.
+.TP
+.B 1
+At least one test failed, a
+.I setup_once
+or
+.I teardown_once
+script failed, or the output could not be written.
+.TP
+.B 2
+The command line was invalid:
+an unknown option, a directory which could not be read, or a
+.B \-\-test
+name which matches no test.
+No tests are run.
+.TP
+.B 130
+.B cmdspecs
+was interrupted.
 .SH EXAMPLE
 To test that the
 .BR echo (1)
@@ -204,6 +250,10 @@ containing the following content:
 #!/bin/sh
 echo hello, world
 .fi
+.PP
+The script must be executable:
+.IP
+chmod +x echo-tests/hello.script
 .PP
 Also create the file
 .I echo-tests/hello.stdout
