@@ -134,15 +134,48 @@ exit code of zero.
 .PP
 A test fails also when one of its setup or teardown scripts fails.
 If
-.I setup
-or
+.I foo.script
+fails or its results do not match the expected ones, both
+.I foo.teardown
+and
+.I teardown
+are still run.
+If
 .I foo.setup
-fails, the test itself is not run.
-A teardown script is run whenever the matching setup script
-succeeded, even if the test failed.
+fails,
+.I foo.script
+and
+.I foo.teardown
+are not run, but
+.I teardown
+is.
+If
+.I setup
+fails, none of
+.IR foo.setup ,
+.IR foo.script ,
+.I foo.teardown
+and
+.I teardown
+are run.
+If
+.I foo.script
+is missing or
+.I foo.exit
+is not valid,
+.I foo.setup
+and
+.I foo.teardown
+are not run, but
+.I setup
+and
+.I teardown
+are.
 If
 .I setup_once
-fails, no more tests are run.
+fails, no more tests are run and
+.I teardown_once
+is not run for that directory.
 .PP
 The scripts may use the following environment variables:
 .TP
