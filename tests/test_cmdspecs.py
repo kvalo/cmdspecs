@@ -161,6 +161,11 @@ def test_run_test_keeps_output_files_of_failed_stream_only(tmp_path):
         ['foo.script', 'foo.stdout-actual', 'foo.stdout-diff']
 
 
+def test_run_test_treats_missing_stdin_as_empty(tmp_path):
+    make_script(tmp_path, 'foo', 'cat\n')
+    assert run_single_test(tmp_path) == []
+
+
 def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
     make_script(tmp_path, 'foo', 'echo hello\n')
     teardown = tmp_path / 'foo.teardown'

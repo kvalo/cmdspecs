@@ -426,7 +426,8 @@ class CommandTester:
         started = time.monotonic()
         try:
             subprocess.check_call([script_name],
-                                  env=self.add_to_env(test))
+                                  env=self.add_to_env(test),
+                                  stdin=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
             raise ScriptError(script_name,
                               'exited with %d' % e.returncode)
@@ -519,7 +520,7 @@ class CommandTester:
             if test.stdin:
                 stdin = stack.enter_context(open(test.stdin, 'rb'))
             else:
-                stdin = None
+                stdin = subprocess.DEVNULL
             result = subprocess.run([test.script],
                                     env=self.add_to_env(test),
                                     stdin=stdin,

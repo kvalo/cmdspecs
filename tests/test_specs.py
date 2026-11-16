@@ -234,6 +234,16 @@ def test_no_colors_when_not_a_terminal(tmp_path):
     assert '\x1b' not in result.stdout
 
 
+def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
+    write_script(tmp_path / 'setup', 'cat\n')
+    write_script(tmp_path / 'foo.script', 'cat\n')
+    result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
+                            input='surprise\n', capture_output=True,
+                            text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'surprise' not in result.stdout
+
+
 def test_runs_teardown_after_failing_test_setup(tmp_path):
     write_script(tmp_path / 'teardown', 'touch "$SRCDIR/teardown-ran"\n')
     write_script(tmp_path / 'foo.setup', 'exit 1\n')
