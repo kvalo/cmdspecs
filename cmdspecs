@@ -108,8 +108,9 @@ class TestDir:
         return sorted(prefixes)
 
 
-ALL_TESTS = ''
-COMPLETE_TEST = ''
+# Key in CommandTester.timings for the scripts that are not run for
+# any one test.
+ALL_TESTS = None
 
 
 class TestFailure(Exception):
@@ -301,66 +302,76 @@ class CommandTester:
 
         args = self.make_parser().parse_args(argv)
 
+        # The time each script took as (seconds, script) pairs, and the
+        # time each test took in total. The keys are path prefixes of
+        # the tests.
         self.timings = {}
-        self.timings[ALL_TESTS] = {}
+        self.test_timings = {}
+        # Failures of setup_once and teardown_once scripts.
+        self.errors = []
         suite_started = time.monotonic()
 
-        # Convert args to dict-like access for compatibility
-        self.settings = {
-            'test': args.test if args.test else [],
-            'timings': args.timings,
-            'keep': args.keep
-        }
+        testdirs = self.load_tests(args.dirnames, args.test or [])
+        tests = [test for td in testdirs for test in td.tests]
 
-        td = self.load_tests(args.dirnames)
         self.setup_reporter(args)
-        self.reporter.start(td.tests)
+        self.reporter.start(tests)
 
         self.setup_tempdir()
+        keep_tempdir = False
         try:
-            failed = self.run_tests(td)
-        except ScriptError as e:
-            self.reporter.end_line()
-            self.cleanup_tempdir()
-            sys.exit('cmdspecs: %s' % e)
-
-        keep_tempdir = failed and self.settings['keep']
-        if not keep_tempdir:
-            self.cleanup_tempdir()
+            failed = self.run_tests(testdirs)
+            keep_tempdir = bool(failed) and args.keep
+        finally:
+            if not keep_tempdir:
+                self.cleanup_tempdir()
 
         elapsed = time.monotonic() - suite_started
-        self.timings[ALL_TESTS][COMPLETE_TEST] = elapsed
 
-        self.reporter.finish(failed, len(td.tests) - len(failed), elapsed)
+        self.reporter.finish(failed, self.reporter.done - len(failed),
+                             elapsed)
 
         if keep_tempdir:
             self.output.write('Test work area: %s\n' % self.tempdir)
 
-        if self.settings['timings']:
-            self.report_timings()
+        if args.timings:
+            self.report_timings(elapsed)
 
-        if failed:
+        for error in self.errors:
+            sys.stderr.write('cmdspecs: %s\n' % error)
+
+        if failed or self.errors:
             sys.exit(1)
 
-    def run_tests(self, td):
+    def run_tests(self, testdirs):
         '''Run the tests and return a list of (test, failures) pairs.'''
         failed = []
-        self.run_script(ALL_TESTS, td.setup_once)
-        for test in td.tests:
-            self.timings[test.name] = {}
-            started = time.monotonic()
-            self.reporter.test_started(test)
+        for td in testdirs:
+            if not td.tests:
+                continue
             try:
-                self.run_script(test.name, td.setup)
-                failures = self.run_test(test)
-                self.run_script(test.name, td.teardown)
+                self.run_script(td.setup_once)
             except ScriptError as e:
-                failures = [TestFailure(test, str(e))]
-            self.reporter.test_finished(test, failures)
-            if failures:
-                failed.append((test, failures))
-            self.timings[test.name][COMPLETE_TEST] = time.monotonic() - started
-        self.run_script(ALL_TESTS, td.teardown_once)
+                # The tests can't be trusted without their setup, so
+                # stop here.
+                self.errors.append(e)
+                break
+            for test in td.tests:
+                started = time.monotonic()
+                self.reporter.test_started(test)
+                failures = []
+                if self.run_hook(td.setup, test, failures):
+                    failures += self.run_test(test)
+                    self.run_hook(td.teardown, test, failures)
+                self.reporter.test_finished(test, failures)
+                if failures:
+                    failed.append((test, failures))
+                self.test_timings[test.path_prefix] = \
+                    time.monotonic() - started
+            try:
+                self.run_script(td.teardown_once)
+            except ScriptError as e:
+                self.errors.append(e)
         return failed
 
     def setup_reporter(self, args):
@@ -372,30 +383,28 @@ class CommandTester:
         self.reporter = Reporter(self.output, verbose=args.verbose,
                                  color=color)
 
-    def load_tests(self, dirnames):
-        td = TestDir()
+    def load_tests(self, dirnames, names):
+        '''Return a TestDir for each directory.
+
+        If names is not empty, load only the tests with those names.
+
+        '''
+        testdirs = []
         for dirname in dirnames:
-            if self.settings['test']:
-                filenames = self.find_requested_tests(dirname)
-                td.scan(dirname, filenames)
-            else:
-                td.scan(dirname)
-        return td
+            filenames = os.listdir(dirname)
+            if names:
+                filenames = self.find_requested_tests(filenames, names)
+            td = TestDir()
+            td.scan(dirname, filenames)
+            testdirs.append(td)
+        return testdirs
 
-    def find_requested_tests(self, dirname):
-        filenames = []
-        for test in self.settings['test']:
+    def find_requested_tests(self, filenames, names):
+        wanted = set(TestDir.dir_scripts)
+        for name in names:
             for suffix in TestDir.per_test_suffixes:
-                filename = '%s.%s' % (test, suffix)
-                if os.path.exists(os.path.join(dirname, filename)):
-                    filenames.append(filename)
-
-        for basename in TestDir.dir_scripts:
-            filename = os.path.join(dirname, basename)
-            if os.path.exists(filename):
-                filenames.append(basename)
-
-        return filenames
+                wanted.add('%s.%s' % (name, suffix))
+        return [x for x in filenames if x in wanted]
 
     def setup_tempdir(self):
         self.tempdir = tempfile.mkdtemp()
@@ -405,93 +414,119 @@ class CommandTester:
     def cleanup_tempdir(self):
         shutil.rmtree(self.tempdir)
 
-    def run_script(self, test_name, script_name):
-        if script_name:
-            started = time.monotonic()
-            try:
-                subprocess.check_call([script_name],
-                                      env=self.add_to_env(test_name))
-            except subprocess.CalledProcessError as e:
-                raise ScriptError(script_name,
-                                  'exited with %d' % e.returncode)
-            except OSError as e:
-                raise ScriptError(script_name, e.strerror)
-            self.timings[test_name][script_name] = time.monotonic() - started
+    def run_script(self, script_name, test=None):
+        '''Run a setup or teardown script, if there is one.
 
-    def add_to_env(self, test_name):
+        test is None for the scripts which are not run for any one
+        test.
+
+        '''
+        if not script_name:
+            return
+        started = time.monotonic()
+        try:
+            subprocess.check_call([script_name],
+                                  env=self.add_to_env(test))
+        except subprocess.CalledProcessError as e:
+            raise ScriptError(script_name,
+                              'exited with %d' % e.returncode)
+        except OSError as e:
+            raise ScriptError(script_name, e.strerror)
+        key = test.path_prefix if test else ALL_TESTS
+        self.timings.setdefault(key, []).append(
+            (time.monotonic() - started, script_name))
+
+    def run_hook(self, script_name, test, failures):
+        '''Run a setup or teardown script of a test.
+
+        If the script fails, add that to failures and return False.
+
+        '''
+        try:
+            self.run_script(script_name, test)
+        except ScriptError as e:
+            failures.append(TestFailure(test, str(e)))
+            return False
+        return True
+
+    def add_to_env(self, test):
         env = dict(os.environ)
         env['SRCDIR'] = os.getcwd()
         env['DATADIR'] = self.datadir
-        env['TESTNAME'] = test_name
+        env['TESTNAME'] = test.name if test else ''
         return env
 
     def run_test(self, test):
         if not test.script:
             return [TestFailure(test, 'missing %s.script' % test.name)]
 
-        self.run_script(test.name, test.setup)
+        expected_exit = int(cat(test.exit).strip() or '0') \
+            if test.exit else 0
 
-        argv = [test.script]
+        failures = []
+        if not self.run_hook(test.setup, test, failures):
+            return failures
 
         stdout_name = test.path_prefix + '.stdout-actual'
         stderr_name = test.path_prefix + '.stderr-actual'
-        with open(stdout_name, 'wb') as stdout:
-            with open(stderr_name, 'wb') as stderr:
-                if test.stdin:
-                    stdin = open(test.stdin, 'rb')
-                else:
-                    stdin = None
-                env = self.add_to_env(test.name)
-                run_error = None
-                try:
-                    result = subprocess.run(argv,
-                                            env=env,
-                                            stdin=stdin,
-                                            stdout=stdout,
-                                            stderr=stderr,
-                                            check=False)
-                    exit_code = result.returncode
-                except OSError as e:
-                    run_error = e
-                if stdin is not None:
-                    stdin.close()
+        run_error = None
+        try:
+            exit_code = self.run_command(test, stdout_name, stderr_name)
+        except OSError as e:
+            run_error = e
 
-        self.run_script(test.name, test.teardown)
+        # Run the teardown even if the test failed, but report its
+        # failure last as it's the least interesting one.
+        teardown_failures = []
+        self.run_hook(test.teardown, test, teardown_failures)
 
         if run_error:
             # Comparing output and exit code is pointless when the
             # script never ran.
-            return [TestFailure(test, 'could not run %s: %s' %
-                                (test.script, run_error.strerror))]
+            remove(stdout_name)
+            remove(stderr_name)
+            msg = run_error.strerror
+            if run_error.filename not in (None, test.script):
+                msg = '%s: %s' % (run_error.filename, msg)
+            failures.append(TestFailure(test, 'could not run %s: %s' %
+                                        (test.script, msg)))
+            return failures + teardown_failures
 
-        errors = []
+        outputs = [('stdout', test.stdout, stdout_name),
+                   ('stderr', test.stderr, stderr_name)]
+        for what, expected_name, actual_name in outputs:
+            diff_name = '%s.%s-diff' % (test.path_prefix, what)
+            diff = self.diff(expected_name or '/dev/null', actual_name,
+                             diff_name)
+            if diff:
+                failures.append(TestFailure(test, '%s diff:\n%s' %
+                                            (what, diff)))
+            else:
+                remove(actual_name)
 
-        stdout_diff_name = test.path_prefix + '.stdout-diff'
-        stdout_diff = self.diff(test.stdout or '/dev/null', stdout_name,
-                                stdout_diff_name)
-        if stdout_diff:
-            errors.append(TestFailure(test,
-                                      'stdout diff:\n%s' % stdout_diff))
-
-        stderr_diff_name = test.path_prefix + '.stderr-diff'
-        stderr_diff = self.diff(test.stderr or '/dev/null', stderr_name,
-                                stderr_diff_name)
-        if stderr_diff:
-            errors.append(TestFailure(test,
-                                      'stderr diff:\n%s' % stderr_diff))
-
-        contents = cat(test.exit or '/dev/null')
-        expected_exit = int(contents.strip() or '0')
         if exit_code != expected_exit:
-            errors.append(TestFailure(test,
-                                      'got exit code %s, expected %s' %
-                                      (exit_code, expected_exit)))
+            failures.append(TestFailure(test,
+                                        'got exit code %s, expected %s' %
+                                        (exit_code, expected_exit)))
 
-        if not errors:
-            os.remove(stdout_name)
-            os.remove(stderr_name)
+        return failures + teardown_failures
 
-        return errors
+    def run_command(self, test, stdout_name, stderr_name):
+        '''Run the script of a test and return its exit code.'''
+        with contextlib.ExitStack() as stack:
+            stdout = stack.enter_context(open(stdout_name, 'wb'))
+            stderr = stack.enter_context(open(stderr_name, 'wb'))
+            if test.stdin:
+                stdin = stack.enter_context(open(test.stdin, 'rb'))
+            else:
+                stdin = None
+            result = subprocess.run([test.script],
+                                    env=self.add_to_env(test),
+                                    stdin=stdin,
+                                    stdout=stdout,
+                                    stderr=stderr,
+                                    check=False)
+            return result.returncode
 
     def diff(self, expected_name, actual_name, diff_name):
         '''Write a diff of two files to a file and return it.
@@ -529,20 +564,17 @@ class CommandTester:
         # Show invalid UTF-8 as backslash escapes.
         return b''.join(diff_lines).decode('utf-8', 'backslashreplace')
 
-    def report_timings(self):
+    def report_timings(self, elapsed):
 
-        def report(key, title):
-            t = self.timings[key]
-            self.output.write('  %s: %.1f s\n' % (title, t[COMPLETE_TEST]))
-
-            items = [(t[x], x) for x in t.keys() if x != COMPLETE_TEST]
-            for secs, script in sorted(items):
+        def report(key, title, total):
+            self.output.write('  %s: %.1f s\n' % (title, total))
+            for secs, script in sorted(self.timings.get(key, [])):
                 self.output.write('    %4.1f %s\n' % (secs, script))
 
         self.output.write('Timings (in seconds):\n')
-        report(ALL_TESTS, 'whole test suite')
-        for name in sorted(x for x in self.timings.keys() if x != ALL_TESTS):
-            report(name, name)
+        report(ALL_TESTS, 'whole test suite', elapsed)
+        for name, secs in sorted(self.test_timings.items()):
+            report(name, name, secs)
 
 
 if __name__ == '__main__':

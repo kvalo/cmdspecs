@@ -67,7 +67,12 @@ a shell script to run once, after all tests
 .PP
 .B cmdspecs
 is given the name of the directory with all the tests,
-or several such directories, and it does the following:
+or several such directories.
+Each directory has its own setup and teardown scripts,
+which are run only for the tests in that directory.
+For each directory
+.B cmdspecs
+does the following:
 .PP
 .na
 .nh
@@ -117,6 +122,18 @@ If one of the standard input, output, or error files is missing,
 it is treated as if it were empty. 
 If the exit code file is missing, it is treated as if it specified an
 exit code of zero.
+.PP
+A test fails also when one of its setup or teardown scripts fails.
+If
+.I setup
+or
+.I foo.setup
+fails, the test itself is not run.
+A teardown script is run whenever the matching setup script
+succeeded, even if the test failed.
+If
+.I setup_once
+fails, no more tests are run.
 .PP
 The shell scripts may use the following environment variables:
 .TP
@@ -233,7 +250,8 @@ FAILED hello \- stdout diff:
 Furthermore, the 
 .I echo-tests
 directory will contain the actual output files,
-and diffs from the expected files.
+and diffs from the expected files,
+for the outputs which differ.
 If one of the actual output files is actually correct,
 you can actually rename it to be the expected file.
 Actually,

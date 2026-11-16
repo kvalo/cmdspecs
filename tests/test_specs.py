@@ -75,6 +75,26 @@ def test_runs_tests_from_multiple_dirs(tmp_path):
     assert ' 3 passed in ' in result.stdout
 
 
+def test_each_dir_uses_its_own_hooks(tmp_path):
+    for name in ['one', 'two']:
+        d = tmp_path / name
+        d.mkdir()
+        for hook in ['setup_once', 'setup', 'teardown', 'teardown_once']:
+            write_script(d / hook, 'echo "%s/%s $TESTNAME" >> "%s"\n' %
+                         (name, hook, tmp_path / 'log'))
+        write_script(d / (name + '-test.script'), '')
+    result = run_cmdspecs('one', 'two', cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / 'log').read_text().splitlines() == [
+        'one/setup_once ',
+        'one/setup one-test', 'one/teardown one-test',
+        'one/teardown_once ',
+        'two/setup_once ',
+        'two/setup two-test', 'two/teardown two-test',
+        'two/teardown_once ',
+    ]
+
+
 def test_test_option_runs_only_named_test(tmp_path):
     echo = copy_spec('echo', tmp_path)
     sort = copy_spec('sort', tmp_path)
@@ -212,3 +232,43 @@ def test_no_colors_when_not_a_terminal(tmp_path):
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
     assert '\x1b' not in result.stdout
+
+
+def test_runs_teardown_after_failing_test_setup(tmp_path):
+    write_script(tmp_path / 'teardown', 'touch "$SRCDIR/teardown-ran"\n')
+    write_script(tmp_path / 'foo.setup', 'exit 1\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAILED foo - %s: exited with 1' % (tmp_path / 'foo.setup') \
+        in result.stdout
+    assert (tmp_path / 'teardown-ran').exists()
+
+
+def test_failing_teardown_does_not_hide_diff(tmp_path):
+    write_script(tmp_path / 'teardown', 'exit 1\n')
+    write_script(tmp_path / 'foo.script', 'echo unexpected\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAILED foo - stdout diff:' in result.stdout
+    assert '%s: exited with 1\n' % (tmp_path / 'teardown') in result.stdout
+
+
+def test_failing_teardown_once_keeps_results(tmp_path):
+    write_script(tmp_path / 'teardown_once', 'exit 2\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert ' 1 passed in ' in result.stdout
+    assert result.stderr == 'cmdspecs: %s: exited with 2\n' % \
+        (tmp_path / 'teardown_once')
+
+
+def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
+    for name in ['one', 'two']:
+        (tmp_path / name).mkdir()
+        write_script(tmp_path / name / 'foo.script', '')
+    result = run_cmdspecs('--timings', 'one', 'two', cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert '  one/foo: ' in result.stdout
+    assert '  two/foo: ' in result.stdout

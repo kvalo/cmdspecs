@@ -154,6 +154,32 @@ def test_run_test_keeps_output_files_on_failure(tmp_path):
     assert (tmp_path / 'foo.stdout-diff').exists()
 
 
+def test_run_test_keeps_output_files_of_failed_stream_only(tmp_path):
+    make_script(tmp_path, 'foo', 'echo hello\nexit 3\n')
+    run_single_test(tmp_path)
+    assert sorted(x.name for x in tmp_path.iterdir()) == \
+        ['foo.script', 'foo.stdout-actual', 'foo.stdout-diff']
+
+
+def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
+    make_script(tmp_path, 'foo', 'echo hello\n')
+    teardown = tmp_path / 'foo.teardown'
+    teardown.write_text('#!/bin/sh\nexit 4\n')
+    teardown.chmod(0o755)
+    errors = run_single_test(tmp_path)
+    assert len(errors) == 2
+    assert errors[0].startswith('stdout diff:\n')
+    assert errors[1] == '%s: exited with 4' % teardown
+
+
+def test_run_test_removes_output_files_when_script_cannot_run(tmp_path):
+    (tmp_path / 'foo.script').write_text('#!/bin/sh\n')
+    errors = run_single_test(tmp_path)
+    assert len(errors) == 1
+    assert errors[0].startswith('could not run ')
+    assert sorted(x.name for x in tmp_path.iterdir()) == ['foo.script']
+
+
 def test_diff_puts_each_line_on_its_own_line(tmp_path):
     expected = tmp_path / 'expected'
     expected.write_text('broken\n')
@@ -244,8 +270,7 @@ def test_find_requested_tests_includes_dir_scripts(tmp_path):
                  'teardown_once']:
         (tmp_path / name).write_text('')
     tester = cmdspecs.CommandTester()
-    tester.settings = {'test': ['foo']}
-    filenames = tester.find_requested_tests(str(tmp_path))
+    filenames = tester.find_requested_tests(os.listdir(tmp_path), ['foo'])
     assert sorted(filenames) == ['foo.script', 'foo.stdout', 'setup',
                                  'teardown_once']
 
