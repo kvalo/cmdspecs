@@ -299,6 +299,9 @@ class CommandTester:
 
     def run(self, argv=None):
         self.output = sys.stdout
+        # Test output shown in the diffs may have characters which the
+        # encoding of the output doesn't have.
+        self.output.reconfigure(errors='backslashreplace')
 
         parser = self.make_parser()
         args = parser.parse_args(argv)
@@ -600,5 +603,18 @@ class CommandTester:
             report(name, name, secs)
 
 
+def main():
+    try:
+        CommandTester().run()
+    except KeyboardInterrupt:
+        sys.stderr.write('\ncmdspecs: interrupted\n')
+        sys.exit(130)
+    except BrokenPipeError:
+        # Python flushes stdout at exit, so point it elsewhere to avoid
+        # a second error.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
+
+
 if __name__ == '__main__':
-    CommandTester().run()
+    main()
