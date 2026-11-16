@@ -234,6 +234,23 @@ def test_no_colors_when_not_a_terminal(tmp_path):
     assert '\x1b' not in result.stdout
 
 
+def test_reports_unknown_test(tmp_path):
+    spec = copy_spec('echo', tmp_path)
+    result = run_cmdspecs('-t', 'hello', '-t', 'nosuch', spec, cwd=tmp_path)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert 'cmdspecs: error: no such test: nosuch\n' in result.stderr
+    assert result.stdout == ''
+
+
+@pytest.mark.parametrize('args', [(), ('-t', 'foo')])
+def test_reports_missing_dir(args, tmp_path):
+    result = run_cmdspecs(*args, 'nosuch', cwd=tmp_path)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert 'cmdspecs: error: nosuch: No such file or directory\n' \
+        in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
 def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
     write_script(tmp_path / 'setup', 'cat\n')
     write_script(tmp_path / 'foo.script', 'cat\n')

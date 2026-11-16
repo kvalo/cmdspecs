@@ -300,7 +300,8 @@ class CommandTester:
     def run(self, argv=None):
         self.output = sys.stdout
 
-        args = self.make_parser().parse_args(argv)
+        parser = self.make_parser()
+        args = parser.parse_args(argv)
 
         # The time each script took as (seconds, script) pairs, and the
         # time each test took in total. The keys are path prefixes of
@@ -311,8 +312,15 @@ class CommandTester:
         self.errors = []
         suite_started = time.monotonic()
 
-        testdirs = self.load_tests(args.dirnames, args.test or [])
+        try:
+            testdirs = self.load_tests(args.dirnames, args.test or [])
+        except OSError as e:
+            parser.error('%s: %s' % (e.filename, e.strerror))
         tests = [test for td in testdirs for test in td.tests]
+        names = set(test.name for test in tests)
+        missing = [name for name in args.test or [] if name not in names]
+        if missing:
+            parser.error('no such test: %s' % ', '.join(missing))
 
         self.setup_reporter(args)
         self.reporter.start(tests)
