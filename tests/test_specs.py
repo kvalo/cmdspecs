@@ -274,6 +274,16 @@ def test_failing_teardown_once_keeps_results(tmp_path):
         (tmp_path / 'teardown_once')
 
 
+def test_reports_invalid_exit_file(tmp_path):
+    write_script(tmp_path / 'foo.script', '')
+    (tmp_path / 'foo.exit').write_text('zero\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'FAILED foo - invalid %s: ' % (tmp_path / 'foo.exit') \
+        in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
 def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
     for name in ['one', 'two']:
         (tmp_path / name).mkdir()

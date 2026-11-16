@@ -461,8 +461,11 @@ class CommandTester:
         if not test.script:
             return [TestFailure(test, 'missing %s.script' % test.name)]
 
-        expected_exit = int(cat(test.exit).strip() or '0') \
-            if test.exit else 0
+        try:
+            expected_exit = int(cat(test.exit).strip() or '0') \
+                if test.exit else 0
+        except (OSError, ValueError) as e:
+            return [TestFailure(test, 'invalid %s: %s' % (test.exit, e))]
 
         failures = []
         if not self.run_hook(test.setup, test, failures):

@@ -166,6 +166,15 @@ def test_run_test_treats_missing_stdin_as_empty(tmp_path):
     assert run_single_test(tmp_path) == []
 
 
+def test_run_test_reports_invalid_exit_file(tmp_path):
+    make_script(tmp_path, 'foo', 'touch "$DATADIR/ran"\n')
+    (tmp_path / 'foo.exit').write_text('zero\n')
+    errors = run_single_test(tmp_path)
+    assert len(errors) == 1
+    assert errors[0].startswith('invalid %s: ' % (tmp_path / 'foo.exit'))
+    assert not (tmp_path / 'ran').exists()
+
+
 def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
     make_script(tmp_path, 'foo', 'echo hello\n')
     teardown = tmp_path / 'foo.teardown'
