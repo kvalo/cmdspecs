@@ -1,11 +1,9 @@
-README for cmdspecs
-===================
+# README for cmdspecs
 
 This project provides `cmdspecs`, a black box testing tool for Unix
 command line tools.
 
-cmdspecs
---------
+## cmdspecs
 
 `cmdspecs` black box tests Unix command line tools.
 Given some test scripts, their inputs, and expected outputs,
@@ -14,9 +12,7 @@ If not, it reports problems, and shows the differences.
 
 See the manual page for details on how to use the program.
 
-
-Installation
-------------
+## Installation
 
 ### From Source
 
@@ -54,9 +50,7 @@ This does not install the manual page; read it with
 `man -l cmdspecs.1` or copy it to a `man1` directory in your
 `MANPATH`.
 
-
-Manual page
------------
+## Manual page
 
 The manual page source is `cmdspecs.1`, which `pip install` installs
 under `share/man/man1`. To read it from the source tree without
@@ -66,11 +60,9 @@ installing:
 man -l cmdspecs.1
 ```
 
+## Legalese
 
-Legalese
---------
-
-Copyright 2011-2017 Lars Wirzenius
+Copyright 2011-2017 Lars Wirzenius\
 Copyright 2025-2026 Kalle Valo
 
 This program is free software: you can redistribute it and/or modify

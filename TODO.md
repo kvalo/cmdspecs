@@ -166,7 +166,7 @@ is chosen, add it to:
 - The manpage `cmdspecs.1`, for example in a short section at the
   end, or in SEE ALSO, so users can find the project and where to
   report bugs.
-- `README`, which does not mention where the project lives.
+- `README.md`, which does not mention where the project lives.
 - The `--help` text in `CommandTester.make_parser()`, which now only
   points at cmdspecs(1).
 - The hosting service settings and the git remote, so that the
@@ -181,13 +181,6 @@ inconsistent in `--help`. On the other hand, short options are scarce,
 and rarely used options are better left long, which also keeps the
 short ones free for later. Decide whether to add some, and if so
 update the manpage SYNOPSIS and OPTIONS sections.
-
-## Convert README to Markdown
-
-`README` is plain text. Convert it to `README.md` so that it renders
-on the hosting service. Then update everything which refers to the
-old name: `pyproject.toml` (`readme`), `MANIFEST.in`, and the
-mentions in `CLAUDE.md` and the other documentation.
 
 ## Rename the "test session starts" banner
 
