@@ -11,12 +11,12 @@ cmdspecs \- blackbox testing of Unix command line tools
 .RB [ \-h ]
 .RB [ \-t
 .IR TEST ]...\&
-.RB [ \-\-timings ]
+.RB [ \-T ]
 .RB [ \-k ]
 .RB [ \-v ]
-.RB [ \-\-color =\c
+.RB [ \-C
 .IR WHEN ]
-.RB [ \-\-version ]
+.RB [ \-V ]
 .IR DIR ...
 .SH DESCRIPTION
 .B cmdspecs
@@ -216,7 +216,7 @@ without the directory.
 The tests in all the given directories with that name are run.
 Can be given many times.
 .TP
-.B \-\-timings
+.BR \-T ", " \-\-timings
 Report how long the whole run and each test took,
 and each script of a test,
 after the test summary.
@@ -248,7 +248,7 @@ for each failed one.
 In this form the name is shown as
 .IR DIR :: foo .
 .TP
-.BR \-\-color =\fIWHEN\fR
+.BR \-C ", " \-\-color =\fIWHEN\fR
 Color the output.
 .I WHEN
 is
@@ -262,7 +262,7 @@ colors the output only when it goes to a terminal and the
 .B NO_COLOR
 environment variable is unset or empty.
 .TP
-.B \-\-version
+.BR \-V ", " \-\-version
 Show the version number and exit.
 .TP
 .BR \-h ", " \-\-help

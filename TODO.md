@@ -172,16 +172,6 @@ is chosen, add it to:
 - The hosting service settings and the git remote, so that the
   repository description and the URL agree.
 
-## Some options have no short form
-
-`-t`, `-k` and `-v` have a short form, but `--timings`, `--color` and
-`--version` do not. Is that confusing? Users may expect `-V` for
-`--version` and perhaps `-T` for `--timings`, and the mix looks
-inconsistent in `--help`. On the other hand, short options are scarce,
-and rarely used options are better left long, which also keeps the
-short ones free for later. Decide whether to add some, and if so
-update the manpage SYNOPSIS and OPTIONS sections.
-
 ## Rename the "test session starts" banner
 
 `Reporter` prints `test session starts` as its first line, inspired
