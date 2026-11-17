@@ -252,7 +252,6 @@ Show a help message and exit.
 .TP
 .B 0
 All tests passed.
-This is the exit status also when no tests were found.
 .TP
 .B 1
 At least one test failed, a
@@ -267,6 +266,12 @@ an unknown option, a directory which could not be read, or a
 .B \-\-test
 name which matches no test.
 No tests are run.
+.TP
+.B 5
+A directory on the command line contains no tests.
+This is not checked with
+.BR \-\-test ,
+and the tests of the other directories are still run.
 .TP
 .B 130
 .B cmdspecs

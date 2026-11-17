@@ -5,37 +5,6 @@ deliberately left alone, mostly because fixing them needs a design
 decision or changes the behaviour users may rely on. The function
 names refer to the `cmdspecs` script.
 
-## Exit status when no tests are collected
-
-When the directories given on the command line contain no test
-files, cmdspecs prints `no tests ran` in yellow and exits with 0.
-The summary and the exit status are decided at the end of
-`CommandTester.run()`, which exits with 1 only if a test or a
-`setup_once`/`teardown_once` script failed.
-
-This is a problem in CI: a directory which is empty by mistake, a
-wrong path which happens to exist, or tests which were renamed so
-that no file has a known suffix any more, all look like a successful
-run. pytest exits with 5 in this situation for that reason. (A
-directory which does not exist, and a `-t` name which matches no
-test, are already errors.)
-
-Options:
-
-- Always exit with a non-zero status, for example 5 like pytest.
-  Simple and safe, but breaks users who run cmdspecs on directories
-  which may legitimately be empty, such as a loop over optional test
-  directories.
-- Add an option, either to turn the error on (`--fail-on-empty`,
-  compatible but nobody will use it) or to turn it off
-  (`--allow-empty`, safe by default but an incompatible change).
-- Decide per directory or for the whole run. With several
-  directories, is one empty directory an error or only all of them
-  being empty? Per directory catches more mistakes.
-
-Whatever is chosen, update the EXIT STATUS section of the manpage,
-which says that the exit status is 0 also when no tests were found.
-
 ## The --keep option does not keep the data on every failure
 
 The manpage and `--help` describe `-k`/`--keep` as "keep temporary

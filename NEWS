@@ -6,6 +6,12 @@ This file summarizes changes between releases of cmdspecs.
 Version 0.33+git, not yet released
 ----------------------------------
 
+* A directory without tests on the command line is now an error:
+  cmdspecs reports it and exits with 5, as pytest does. Before, it
+  exited with 0. The summary also counts such errors, and the errors
+  of `setup_once` and `teardown_once` scripts, and is red when there
+  are any.
+
 Version 0.33, released 2026-11-15
 ---------------------------------
 

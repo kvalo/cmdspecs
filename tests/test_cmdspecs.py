@@ -353,7 +353,7 @@ def make_reporter(names, **kwargs):
     return tests, output, reporter
 
 
-def run_reporter(tests, reporter, failing=()):
+def run_reporter(tests, reporter, failing=(), errors=0):
     failed = []
     for test in tests:
         reporter.test_started(test)
@@ -362,7 +362,7 @@ def run_reporter(tests, reporter, failing=()):
             failures = [cmdspecs.TestFailure(test, 'stdout diff:\n+x\n')]
             failed.append((test, failures))
         reporter.test_finished(test, failures)
-    reporter.finish(failed, len(tests) - len(failed), 0.5)
+    reporter.finish(failed, len(tests) - len(failed), 0.5, errors)
 
 
 def test_reporter_start_shows_header():
@@ -449,6 +449,17 @@ def test_reporter_reports_no_tests():
     tests, output, reporter = make_reporter([])
     run_reporter(tests, reporter)
     assert output.getvalue() == '======== no tests ran in 0.50s ========\n'
+
+
+def test_reporter_counts_errors():
+    # Errors which belong to no test are counted in the summary, even
+    # when no test ran.
+    tests, output, reporter = make_reporter([])
+    run_reporter(tests, reporter, errors=2)
+    assert output.getvalue() == '========== 2 errors in 0.50s ==========\n'
+    tests, output, reporter = make_reporter([('a', 'd/a')])
+    run_reporter(tests, reporter, errors=1)
+    assert '1 passed, 1 error in 0.50s' in output.getvalue()
 
 
 def test_reporter_colors_output():

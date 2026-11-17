@@ -370,13 +370,13 @@ def test_failing_teardown_does_not_hide_diff(tmp_path):
 
 
 def test_failing_teardown_once_keeps_results(tmp_path):
-    # A failing teardown_once is reported on stderr and exit 1, but the
-    # test results are still shown.
+    # A failing teardown_once is reported on stderr, counted as an error
+    # in the summary and exit 1, but the test results are still shown.
     write_script(tmp_path / 'teardown_once', 'exit 2\n')
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert ' 1 passed in ' in result.stdout
+    assert ' 1 passed, 1 error in ' in result.stdout
     assert result.stderr == 'cmdspecs: %s: exited with 2\n' % \
         (tmp_path / 'teardown_once')
 
@@ -421,3 +421,36 @@ def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert '  one/foo: ' in result.stdout
     assert '  two/foo: ' in result.stdout
+
+
+def test_dir_without_tests_is_an_error(tmp_path):
+    # A dir without tests is reported, shown as an error in the summary
+    # and makes cmdspecs exit with 5.
+    (tmp_path / 'empty').mkdir()
+    result = run_cmdspecs('empty', cwd=tmp_path)
+    assert result.returncode == 5, result.stdout + result.stderr
+    assert ' 1 error in ' in result.stdout
+    assert result.stderr == 'cmdspecs: empty: no tests found\n'
+
+
+def test_empty_dir_does_not_stop_other_dirs(tmp_path):
+    # The tests of the other dirs are still run, and a failure takes
+    # precedence over the exit status 5.
+    (tmp_path / 'empty').mkdir()
+    echo = copy_spec('echo', tmp_path)
+    result = run_cmdspecs('empty', echo, cwd=tmp_path)
+    assert result.returncode == 5, result.stdout + result.stderr
+    assert ' 1 passed, 1 error in ' in result.stdout
+    fail = copy_spec('fail', tmp_path)
+    result = run_cmdspecs('empty', fail, cwd=tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+
+def test_test_option_ignores_dirs_without_the_test(tmp_path):
+    # With --test only the named tests matter, so a dir which doesn't
+    # have them is not an error.
+    (tmp_path / 'empty').mkdir()
+    echo = copy_spec('echo', tmp_path)
+    result = run_cmdspecs('-t', 'hello', 'empty', echo, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr == ''

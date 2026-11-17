@@ -20,6 +20,9 @@ import time
 
 VERSION = '0.33+git'
 
+# The exit status when a directory has no tests, the same as in pytest.
+EXIT_NO_TESTS = 5
+
 
 def cat(filename):
     '''Return contents of file, or empty string if it doesn't exist.'''
@@ -239,10 +242,11 @@ class Reporter:
         else:
             self.write('.', GREEN)
 
-    def finish(self, failed, passed, elapsed):
+    def finish(self, failed, passed, elapsed, errors=0):
         '''Show failures and the summary.
 
-        failed is a list of (test, failures) pairs.
+        failed is a list of (test, failures) pairs, and errors is the
+        number of problems which are not tied to a test.
 
         '''
 
@@ -266,7 +270,9 @@ class Reporter:
             counts.append('%d failed' % len(failed))
         if passed:
             counts.append('%d passed' % passed)
-        if failed:
+        if errors:
+            counts.append('%d error%s' % (errors, 's' if errors > 1 else ''))
+        if failed or errors:
             color = RED
         elif passed:
             color = GREEN
@@ -333,6 +339,12 @@ class CommandTester:
         missing = [name for name in args.test or [] if name not in names]
         if missing:
             parser.error('no such test: %s' % ', '.join(missing))
+        # With --test a directory without the requested tests is normal.
+        if not args.test:
+            for dirname, td in zip(args.dirnames, testdirs):
+                if not td.tests:
+                    self.errors.append('%s: no tests found' % dirname)
+        empty_dirs = len(self.errors)
 
         self.setup_reporter(args)
         self.setup_tempdir()
@@ -355,7 +367,7 @@ class CommandTester:
         elapsed = time.monotonic() - suite_started
 
         self.reporter.finish(failed, self.reporter.done - len(failed),
-                             elapsed)
+                             elapsed, len(self.errors))
 
         if keep_tempdir:
             self.output.write('Test work area: %s\n' % self.tempdir)
@@ -366,8 +378,10 @@ class CommandTester:
         for error in self.errors:
             sys.stderr.write('cmdspecs: %s\n' % error)
 
-        if failed or self.errors:
+        if failed or len(self.errors) > empty_dirs:
             sys.exit(1)
+        if empty_dirs:
+            sys.exit(EXIT_NO_TESTS)
 
     def run_tests(self, testdirs):
         '''Run the tests and return a list of (test, failures) pairs.'''
