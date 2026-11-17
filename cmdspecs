@@ -311,9 +311,6 @@ class CommandTester:
             epilog='See cmdspecs(1) for more information.',
             prog='cmdspecs'
         )
-        parser.add_argument('-c', '--command',
-                            help='ignored, accepted for backwards '
-                                 'compatibility')
         parser.add_argument('-t', '--test', action='append',
                             help='run only the test named TEST '
                                  '(can be given many times)',

@@ -143,33 +143,6 @@ Things to solve in the implementation:
 - Whether the timeout covers `foo.script` only or also the setup
   and teardown scripts of the test.
 
-## The -c option is accepted and ignored
-
-`CommandTester.make_parser()` defines `-c`/`--command` only so that
-command lines written for cmdtest, from which cmdspecs was forked,
-keep working. The value is never used. In cmdtest the option gave
-the command to test, and it was made available to the test scripts.
-
-Accepting an option and silently ignoring it is misleading: a user
-who gives `-c` expects it to have an effect, and nothing tells them
-otherwise except the manpage.
-
-Options:
-
-- Keep it as is. No work, and old command lines keep working.
-- Print a deprecation warning to stderr when the option is used,
-  and remove it in a later release. This is the usual path, but the
-  warning may break users who compare the stderr of cmdspecs.
-- Remove it now. cmdspecs is a renamed fork, so everybody has to
-  change their command lines anyway to call `cmdspecs` instead of
-  `cmdtest`.
-
-Removing or deprecating it needs updates to the SYNOPSIS and OPTIONS
-sections of the manpage and a NEWS entry.
-`test_manpage_documents_all_options` only checks that the options
-of the parser are in the manpage, not the other way round, so a
-stale entry in the manpage would not be noticed.
-
 ## A script killed by a signal is reported as a negative exit code
 
 `subprocess.run()` returns `-N` as the return code when the process

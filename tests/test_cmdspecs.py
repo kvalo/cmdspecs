@@ -543,3 +543,13 @@ def test_io_error_exits_with_failed_status(monkeypatch, capsys):
     assert excinfo.value.code == cmdspecs.EXIT_FAILED
     assert capsys.readouterr().err == \
         'cmdspecs: /nosuch: Permission denied\n'
+
+
+def test_command_option_is_a_usage_error(monkeypatch, capsys):
+    # -c/--command was accepted and ignored, now it is removed.
+    monkeypatch.setattr(cmdspecs.sys, 'argv',
+                        ['cmdspecs', '-c', 'x', 'tests/specs/echo'])
+    with pytest.raises(SystemExit) as excinfo:
+        cmdspecs.main()
+    assert excinfo.value.code == cmdspecs.EXIT_USAGE
+    assert 'unrecognized arguments: -c' in capsys.readouterr().err
