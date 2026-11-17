@@ -1,4 +1,6 @@
 #!/bin/sh
+# Expected to fail: output with no .stdout file must be reported as a
+# diff. It also writes to DATADIR, so --keep has something to keep.
 
 echo "file used by test" > "$DATADIR/file.txt"
 echo "this is not empty output to make test fail"

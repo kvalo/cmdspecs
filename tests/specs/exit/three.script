@@ -1,2 +1,3 @@
 #!/bin/sh
+# A non-zero exit code listed in the .exit file is accepted.
 exit 3

@@ -33,6 +33,8 @@ def copy_spec(name, tmp_path):
 @pytest.mark.parametrize('name', ['echo', 'sort', 'stderr', 'exit',
                                   'env'])
 def test_passing_spec(name, tmp_path):
+    # Each spec dir whose tests are expected to pass (echo, sort,
+    # stderr, exit, env) makes cmdspecs exit with 0.
     spec = copy_spec(name, tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -41,6 +43,8 @@ def test_passing_spec(name, tmp_path):
 
 
 def test_failing_spec_reports_diff(tmp_path):
+    # A failing test makes cmdspecs exit with 1, show the stdout diff
+    # and keep the -actual file.
     spec = copy_spec('fail', tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -56,6 +60,8 @@ def write_script(path, body):
 
 
 def test_hooks_run_in_order(tmp_path):
+    # Setup_once, setup, <name>.setup, the script, <name>.teardown,
+    # teardown and teardown_once run in that order.
     spec = copy_spec('hooks', tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -68,6 +74,8 @@ def test_hooks_run_in_order(tmp_path):
 
 
 def test_runs_tests_from_multiple_dirs(tmp_path):
+    # Several dirs given on the command line are all run and counted
+    # together.
     echo = copy_spec('echo', tmp_path)
     sort = copy_spec('sort', tmp_path)
     result = run_cmdspecs(echo, sort, cwd=tmp_path)
@@ -76,6 +84,8 @@ def test_runs_tests_from_multiple_dirs(tmp_path):
 
 
 def test_each_dir_uses_its_own_hooks(tmp_path):
+    # The hooks of each dir run only for that dir, and its setup_once
+    # and teardown_once surround its tests.
     for name in ['one', 'two']:
         d = tmp_path / name
         d.mkdir()
@@ -111,6 +121,7 @@ def test_dirs_share_datadir(tmp_path):
 
 
 def test_test_option_runs_only_named_test(tmp_path):
+    # -t runs only the named test, even when other dirs have more tests.
     echo = copy_spec('echo', tmp_path)
     sort = copy_spec('sort', tmp_path)
     result = run_cmdspecs('-t', 'hello', echo, sort, cwd=tmp_path)
@@ -119,6 +130,7 @@ def test_test_option_runs_only_named_test(tmp_path):
 
 
 def test_timings_option_reports_timings(tmp_path):
+    # --timings prints a timings section which includes the whole suite.
     spec = copy_spec('echo', tmp_path)
     result = run_cmdspecs('--timings', spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -127,6 +139,8 @@ def test_timings_option_reports_timings(tmp_path):
 
 
 def test_keep_option_keeps_work_area_on_failure(tmp_path):
+    # --keep leaves the work area (with the DATADIR contents) in place
+    # after a failure and tells where it is.
     spec = copy_spec('fail', tmp_path)
     result = run_cmdspecs('--keep', spec, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -141,6 +155,7 @@ def test_keep_option_keeps_work_area_on_failure(tmp_path):
 
 
 def test_success_leaves_no_output_files(tmp_path):
+    # Running passing tests does not add any files to the spec dir.
     spec = copy_spec('sort', tmp_path)
     before = sorted(spec.iterdir())
     result = run_cmdspecs(spec, cwd=tmp_path)
@@ -149,6 +164,8 @@ def test_success_leaves_no_output_files(tmp_path):
 
 
 def test_counts_failed_tests_not_failures(tmp_path):
+    # A test with several failures (output and exit code) counts as one
+    # failed test.
     write_script(tmp_path / 'foo.script', 'echo unexpected\nexit 3\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -156,6 +173,8 @@ def test_counts_failed_tests_not_failures(tmp_path):
 
 
 def test_reports_missing_script(tmp_path):
+    # A test with files but no .script is reported as failed, without a
+    # traceback.
     (tmp_path / 'foo.stdout').write_text('hello\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -164,6 +183,8 @@ def test_reports_missing_script(tmp_path):
 
 
 def test_reports_failing_setup(tmp_path):
+    # A failing dir-level setup fails every test of the dir and is
+    # reported, without a traceback.
     write_script(tmp_path / 'setup', 'exit 1\n')
     write_script(tmp_path / 'foo.script', '')
     write_script(tmp_path / 'bar.script', '')
@@ -176,6 +197,8 @@ def test_reports_failing_setup(tmp_path):
 
 
 def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
+    # A failing setup_once aborts the run with an error and removes the
+    # temporary work area.
     write_script(tmp_path / 'setup_once', 'exit 2\n')
     write_script(tmp_path / 'foo.script', '')
     tmpdir = tmp_path / 'tmp'
@@ -190,6 +213,8 @@ def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
 
 
 def test_reports_non_executable_script(tmp_path):
+    # A script without the execute permission is reported as failed with
+    # the reason, not a crash.
     script = tmp_path / 'foo.script'
     script.write_text('#!/bin/sh\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
@@ -200,6 +225,8 @@ def test_reports_non_executable_script(tmp_path):
 
 
 def test_reports_non_utf8_output(tmp_path):
+    # Output which is not valid UTF-8 is reported as a diff without a
+    # traceback.
     write_script(tmp_path / 'foo.script', "printf '\\377\\n'\n")
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
@@ -209,6 +236,8 @@ def test_reports_non_utf8_output(tmp_path):
 
 
 def test_test_option_matches_exact_name(tmp_path):
+    # -t foo does not also run foo.bar, because names are matched
+    # exactly.
     write_script(tmp_path / 'foo.script', '')
     write_script(tmp_path / 'foo.bar.script', '')
     result = run_cmdspecs('-t', 'foo', tmp_path, cwd=tmp_path)
@@ -217,6 +246,8 @@ def test_test_option_matches_exact_name(tmp_path):
 
 
 def test_shows_header_and_dots(tmp_path):
+    # The real output has the session header, the number of tests
+    # collected and a dot line for the dir.
     spec = copy_spec('sort', tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -228,6 +259,7 @@ def test_shows_header_and_dots(tmp_path):
 
 
 def test_verbose_option_shows_test_names(tmp_path):
+    # -v prints dir::name PASSED for each test.
     spec = copy_spec('sort', tmp_path)
     result = run_cmdspecs('-v', spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -236,6 +268,7 @@ def test_verbose_option_shows_test_names(tmp_path):
 
 
 def test_color_option_colors_output(tmp_path):
+    # --color=yes adds color even when output is not a terminal.
     spec = copy_spec('sort', tmp_path)
     result = run_cmdspecs('--color=yes', spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -243,6 +276,7 @@ def test_color_option_colors_output(tmp_path):
 
 
 def test_no_colors_when_not_a_terminal(tmp_path):
+    # By default no color is written when output is not a terminal.
     spec = copy_spec('sort', tmp_path)
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -250,6 +284,8 @@ def test_no_colors_when_not_a_terminal(tmp_path):
 
 
 def test_reports_unknown_test(tmp_path):
+    # -t with an unknown test name exits with 2 and an error on stderr,
+    # before running anything.
     spec = copy_spec('echo', tmp_path)
     result = run_cmdspecs('-t', 'hello', '-t', 'nosuch', spec, cwd=tmp_path)
     assert result.returncode == 2, result.stdout + result.stderr
@@ -259,6 +295,8 @@ def test_reports_unknown_test(tmp_path):
 
 @pytest.mark.parametrize('args', [(), ('-t', 'foo')])
 def test_reports_missing_dir(args, tmp_path):
+    # A nonexistent dir, with or without -t, exits with 2 and a clear
+    # error, without a traceback.
     result = run_cmdspecs(*args, 'nosuch', cwd=tmp_path)
     assert result.returncode == 2, result.stdout + result.stderr
     assert 'cmdspecs: error: nosuch: No such file or directory\n' \
@@ -267,6 +305,8 @@ def test_reports_missing_dir(args, tmp_path):
 
 
 def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
+    # Scripts and setup get empty stdin, not the stdin of cmdspecs
+    # itself.
     write_script(tmp_path / 'setup', 'cat\n')
     write_script(tmp_path / 'foo.script', 'cat\n')
     result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
@@ -277,6 +317,8 @@ def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
 
 
 def test_runs_teardown_after_failing_test_setup(tmp_path):
+    # Teardown still runs when the test setup failed, so partial setup
+    # is cleaned up.
     write_script(tmp_path / 'teardown', 'touch "$SRCDIR/teardown-ran"\n')
     write_script(tmp_path / 'foo.setup', 'exit 1\n')
     write_script(tmp_path / 'foo.script', '')
@@ -288,6 +330,8 @@ def test_runs_teardown_after_failing_test_setup(tmp_path):
 
 
 def test_failing_teardown_does_not_hide_diff(tmp_path):
+    # A failing teardown is reported together with the output diff, not
+    # instead of it.
     write_script(tmp_path / 'teardown', 'exit 1\n')
     write_script(tmp_path / 'foo.script', 'echo unexpected\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
@@ -297,6 +341,8 @@ def test_failing_teardown_does_not_hide_diff(tmp_path):
 
 
 def test_failing_teardown_once_keeps_results(tmp_path):
+    # A failing teardown_once is reported on stderr and exit 1, but the
+    # test results are still shown.
     write_script(tmp_path / 'teardown_once', 'exit 2\n')
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
@@ -307,6 +353,8 @@ def test_failing_teardown_once_keeps_results(tmp_path):
 
 
 def test_reports_invalid_exit_file(tmp_path):
+    # A non-numeric .exit file fails the test with a message, without a
+    # traceback.
     write_script(tmp_path / 'foo.script', '')
     (tmp_path / 'foo.exit').write_text('zero\n')
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
@@ -317,6 +365,8 @@ def test_reports_invalid_exit_file(tmp_path):
 
 
 def test_removes_work_area_with_read_only_dirs(tmp_path):
+    # The temporary work area is fully removed even if a test left
+    # read-only dirs in DATADIR.
     write_script(tmp_path / 'foo.script',
                  'mkdir -p "$DATADIR/a/b"\n'
                  'touch "$DATADIR/a/b/file"\n'
@@ -333,6 +383,8 @@ def test_removes_work_area_with_read_only_dirs(tmp_path):
 
 
 def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
+    # --timings names tests with their dir, so same-named tests in
+    # different dirs are listed separately.
     for name in ['one', 'two']:
         (tmp_path / name).mkdir()
         write_script(tmp_path / name / 'foo.script', '')

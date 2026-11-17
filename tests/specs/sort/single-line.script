@@ -1,3 +1,4 @@
 #!/bin/sh
+# A single line from the .stdin file comes back sorted on stdout.
 set -e
 sort "$@"

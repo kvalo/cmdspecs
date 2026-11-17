@@ -22,6 +22,8 @@ _loader.exec_module(cmdspecs)
 
 
 def test_scan_finds_nothing_for_empty_directory():
+    # Scanning a directory with no files leaves every hook unset and the
+    # test list empty.
     td = cmdspecs.TestDir()
     td.scan('tests', filenames=[])
     assert td.setup_once is None
@@ -32,6 +34,8 @@ def test_scan_finds_nothing_for_empty_directory():
 
 
 def test_scan_finds_setup_and_teardown_files():
+    # The dir-level setup_once, setup, teardown and teardown_once files
+    # are recognised and stored with their paths.
     td = cmdspecs.TestDir()
     td.scan('tests', filenames=['setup_once', 'setup', 'teardown',
                                 'teardown_once'])
@@ -43,6 +47,8 @@ def test_scan_finds_setup_and_teardown_files():
 
 
 def test_scan_finds_tests():
+    # A <name>.script file becomes a test called <name>, with the
+    # optional files unset.
     td = cmdspecs.TestDir()
     td.scan('tests', filenames=['foo.script'])
     assert len(td.tests) == 1
@@ -53,6 +59,8 @@ def test_scan_finds_tests():
 
 
 def test_scan_finds_all_per_test_files():
+    # Every per-test file suffix (script, stdin, stdout, ...) is
+    # attached to the test of the same name.
     td = cmdspecs.TestDir()
     suffixes = cmdspecs.TestDir.per_test_suffixes
     td.scan('tests', filenames=['foo.' + x for x in suffixes])
@@ -63,6 +71,8 @@ def test_scan_finds_all_per_test_files():
 
 
 def test_scan_ignores_output_files():
+    # The -actual and -diff files left by an earlier failed run are not
+    # mistaken for tests.
     td = cmdspecs.TestDir()
     td.scan('tests', filenames=['foo.script', 'bar.stdout-actual',
                                 'bar.stdout-diff', 'bar.stderr-actual',
@@ -71,30 +81,38 @@ def test_scan_ignores_output_files():
 
 
 def test_finds_prefix_with_dot():
+    # Only the last dot separates the test name from the suffix, so a
+    # name may contain dots.
     td = cmdspecs.TestDir()
     assert td.find_prefixes(['foo.bar.script']) == ['foo.bar']
 
 
 def test_finds_no_prefixes_when_there_are_none():
+    # Dir-level files such as setup do not yield a test name.
     assert cmdspecs.TestDir().find_prefixes(['setup']) == []
 
 
 def test_finds_single_prefix():
+    # A per-test file (foo.setup) yields its test name while the
+    # dir-level setup is skipped.
     td = cmdspecs.TestDir()
     assert td.find_prefixes(['setup', 'foo.setup']) == ['foo']
 
 
 def test_finds_two_prefixes():
+    # Several tests are found and returned sorted by name.
     td = cmdspecs.TestDir()
     assert (td.find_prefixes(['setup', 'foo.setup', 'bar.script'])
             == ['bar', 'foo'])
 
 
 def test_cat_returns_empty_string_for_nonexistent_file(tmp_path):
+    # A missing file is treated as empty instead of raising an error.
     assert cmdspecs.cat(str(tmp_path / 'file.txt')) == ''
 
 
 def test_cat_returns_contents_of_file(tmp_path):
+    # Cat returns the contents of an existing file.
     filename = tmp_path / 'file.txt'
     filename.write_text('foobar')
     assert cmdspecs.cat(str(filename)) == 'foobar'
@@ -115,18 +133,24 @@ def run_single_test(tmp_path):
 
 
 def test_run_test_reports_actual_exit_code(tmp_path):
+    # Without a .exit file the script is expected to exit with 0, and a
+    # different exit code is reported.
     make_script(tmp_path, 'foo', 'exit 3\n')
     assert run_single_test(tmp_path) == \
         ['got exit code 3, expected 0']
 
 
 def test_run_test_accepts_expected_exit_code(tmp_path):
+    # A .exit file sets the expected exit code, and surrounding
+    # whitespace in it is ignored.
     make_script(tmp_path, 'foo', 'exit 3\n')
     (tmp_path / 'foo.exit').write_text(' 3 \n')
     assert run_single_test(tmp_path) == []
 
 
 def test_run_test_feeds_stdin(tmp_path):
+    # The contents of the .stdin file are given to the script as its
+    # standard input.
     make_script(tmp_path, 'foo', 'cat\n')
     (tmp_path / 'foo.stdin').write_text('hello\n')
     (tmp_path / 'foo.stdout').write_text('hello\n')
@@ -134,6 +158,7 @@ def test_run_test_feeds_stdin(tmp_path):
 
 
 def test_run_test_reports_stderr_diff(tmp_path):
+    # Unexpected output on stderr is reported as a stderr diff.
     make_script(tmp_path, 'foo', 'echo oops 1>&2\n')
     errors = run_single_test(tmp_path)
     assert len(errors) == 1
@@ -142,12 +167,15 @@ def test_run_test_reports_stderr_diff(tmp_path):
 
 
 def test_run_test_removes_output_files_on_success(tmp_path):
+    # A passing test leaves no -actual or -diff files behind.
     make_script(tmp_path, 'foo', '')
     assert run_single_test(tmp_path) == []
     assert sorted(x.name for x in tmp_path.iterdir()) == ['foo.script']
 
 
 def test_run_test_keeps_output_files_on_failure(tmp_path):
+    # A failing stream leaves its -actual and -diff files for
+    # inspection.
     make_script(tmp_path, 'foo', 'echo hello\n')
     run_single_test(tmp_path)
     assert (tmp_path / 'foo.stdout-actual').read_text() == 'hello\n'
@@ -155,6 +183,8 @@ def test_run_test_keeps_output_files_on_failure(tmp_path):
 
 
 def test_run_test_keeps_output_files_of_failed_stream_only(tmp_path):
+    # Only the stream which differs keeps its files, not the streams
+    # which matched.
     make_script(tmp_path, 'foo', 'echo hello\nexit 3\n')
     run_single_test(tmp_path)
     assert sorted(x.name for x in tmp_path.iterdir()) == \
@@ -162,11 +192,15 @@ def test_run_test_keeps_output_files_of_failed_stream_only(tmp_path):
 
 
 def test_run_test_treats_missing_stdin_as_empty(tmp_path):
+    # A test without a .stdin file gets empty input (EOF) rather than
+    # hanging or failing.
     make_script(tmp_path, 'foo', 'cat\n')
     assert run_single_test(tmp_path) == []
 
 
 def test_run_test_reports_invalid_exit_file(tmp_path):
+    # A non-numeric .exit file is reported as an error and the script is
+    # not run at all.
     make_script(tmp_path, 'foo', 'touch "$DATADIR/ran"\n')
     (tmp_path / 'foo.exit').write_text('zero\n')
     errors = run_single_test(tmp_path)
@@ -176,6 +210,8 @@ def test_run_test_reports_invalid_exit_file(tmp_path):
 
 
 def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
+    # A failing teardown is reported in addition to the output diff of
+    # the test, not instead of it.
     make_script(tmp_path, 'foo', 'echo hello\n')
     teardown = tmp_path / 'foo.teardown'
     teardown.write_text('#!/bin/sh\nexit 4\n')
@@ -187,6 +223,8 @@ def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
 
 
 def test_run_test_removes_output_files_when_script_cannot_run(tmp_path):
+    # When the script cannot be started, the error is reported and no
+    # output files are left behind.
     (tmp_path / 'foo.script').write_text('#!/bin/sh\n')
     errors = run_single_test(tmp_path)
     assert len(errors) == 1
@@ -195,6 +233,7 @@ def test_run_test_removes_output_files_when_script_cannot_run(tmp_path):
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):
+    # The diff has one line per diff line, each ending in a newline.
     expected = tmp_path / 'expected'
     expected.write_text('broken\n')
     actual = tmp_path / 'actual'
@@ -206,6 +245,7 @@ def test_diff_puts_each_line_on_its_own_line(tmp_path):
 
 
 def test_diff_returns_empty_string_for_identical_files(tmp_path):
+    # Identical files give an empty diff and no diff file is written.
     expected = tmp_path / 'expected'
     expected.write_text('hello\n')
     actual = tmp_path / 'actual'
@@ -218,6 +258,8 @@ def test_diff_returns_empty_string_for_identical_files(tmp_path):
 
 
 def test_diff_removes_stale_diff_file(tmp_path):
+    # A diff file from an earlier run is deleted when the output now
+    # matches.
     expected = tmp_path / 'expected'
     expected.write_text('hello\n')
     diff_name = tmp_path / 'diff'
@@ -228,6 +270,8 @@ def test_diff_removes_stale_diff_file(tmp_path):
 
 
 def test_diff_shows_timestamps_with_utc_offset(tmp_path):
+    # The diff header shows modification times with microseconds and a
+    # UTC offset.
     expected = tmp_path / 'expected'
     expected.write_text('broken\n')
     actual = tmp_path / 'actual'
@@ -241,6 +285,8 @@ def test_diff_shows_timestamps_with_utc_offset(tmp_path):
 
 
 def test_diff_writes_raw_bytes_to_diff_file(tmp_path):
+    # Non-UTF-8 output is written to the diff file byte for byte, not
+    # mangled.
     actual = tmp_path / 'actual'
     actual.write_bytes(b'\xff\n')
     diff_name = tmp_path / 'diff'
@@ -249,6 +295,8 @@ def test_diff_writes_raw_bytes_to_diff_file(tmp_path):
 
 
 def test_diff_treats_missing_expected_file_as_empty(tmp_path):
+    # A missing expected file means the test expects no output, so all
+    # actual output is shown as added.
     actual = tmp_path / 'actual'
     actual.write_text('hello\n')
     diff = cmdspecs.CommandTester().diff(str(tmp_path / 'missing'),
@@ -258,6 +306,8 @@ def test_diff_treats_missing_expected_file_as_empty(tmp_path):
 
 
 def test_diff_compares_bytes(tmp_path):
+    # Files are compared as bytes, so a literal backslash-x text differs
+    # from a real 0xff byte.
     expected = tmp_path / 'expected'
     expected.write_text('\\xff\n')
     actual = tmp_path / 'actual'
@@ -268,6 +318,8 @@ def test_diff_compares_bytes(tmp_path):
 
 
 def test_diff_reports_missing_newline_at_end(tmp_path):
+    # A missing final newline is a difference and is marked with "\ No
+    # newline at end of file".
     expected = tmp_path / 'expected'
     expected.write_text('hello\n')
     actual = tmp_path / 'actual'
@@ -280,6 +332,8 @@ def test_diff_reports_missing_newline_at_end(tmp_path):
 
 
 def test_find_requested_tests_includes_dir_scripts(tmp_path):
+    # Selecting a test keeps its own files and the dir-level hooks, and
+    # drops the files of other tests.
     for name in ['foo.script', 'foo.stdout', 'bar.script', 'setup',
                  'teardown_once']:
         (tmp_path / name).write_text('')
@@ -312,6 +366,8 @@ def run_reporter(tests, reporter, failing=()):
 
 
 def test_reporter_start_shows_header():
+    # The session header shows the platform, the cmdspecs version and
+    # the number of tests collected.
     output = io.StringIO()
     reporter = cmdspecs.Reporter(output, width=40)
     reporter.start([cmdspecs.TestCase('foo', 'd/foo')])
@@ -323,6 +379,8 @@ def test_reporter_start_shows_header():
 
 
 def test_reporter_shows_dots_per_dir():
+    # Results are printed as dots on one line per directory, with a
+    # running percentage.
     tests, output, reporter = make_reporter(
         [('a', 'one/a'), ('b', 'one/b'), ('c', 'two/c')])
     run_reporter(tests, reporter)
@@ -334,6 +392,8 @@ def test_reporter_shows_dots_per_dir():
 
 
 def test_reporter_wraps_long_dot_lines():
+    # A line with more dots than fit the terminal width is wrapped, with
+    # the percentage on each line.
     names = [('t%d' % i, 'd/t%d' % i) for i in range(40)]
     tests, output, reporter = make_reporter(names)
     run_reporter(tests, reporter)
@@ -343,6 +403,8 @@ def test_reporter_wraps_long_dot_lines():
 
 
 def test_reporter_shows_failures():
+    # A failed test shows F, a FAILURES section with its details and a
+    # short summary line.
     tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')])
     run_reporter(tests, reporter, failing=['b'])
     assert output.getvalue().splitlines() == [
@@ -359,6 +421,8 @@ def test_reporter_shows_failures():
 
 
 def test_reporter_verbose_shows_test_names():
+    # Verbose mode prints one PASSED or FAILED line per test instead of
+    # dots.
     tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')],
                                             verbose=True)
     run_reporter(tests, reporter, failing=['b'])
@@ -369,24 +433,29 @@ def test_reporter_verbose_shows_test_names():
 
 
 def test_reporter_reports_no_tests():
+    # A run without any tests says "no tests ran" instead of "0 passed".
     tests, output, reporter = make_reporter([])
     run_reporter(tests, reporter)
     assert output.getvalue() == '======== no tests ran in 0.50s ========\n'
 
 
 def test_reporter_colors_output():
+    # With color enabled the output has ANSI color codes.
     tests, output, reporter = make_reporter([('a', 'd/a')], color=True)
     run_reporter(tests, reporter)
     assert '\x1b[32m.\x1b[0m' in output.getvalue()
 
 
 def test_reporter_writes_no_colors_by_default():
+    # Without color enabled the output has no escape codes.
     tests, output, reporter = make_reporter([('a', 'd/a')])
     run_reporter(tests, reporter)
     assert '\x1b' not in output.getvalue()
 
 
 def test_manpage_documents_all_options():
+    # Every command line option is documented in the OPTIONS section of
+    # the manpage.
     manpage = Path(_path).with_name('cmdspecs.1').read_text()
     options = manpage.split('\n.SH OPTIONS\n')[1].split('\n.SH ')[0]
     parser = cmdspecs.CommandTester().make_parser()
@@ -396,11 +465,13 @@ def test_manpage_documents_all_options():
 
 
 def test_version_matches_pyproject():
+    # VERSION in cmdspecs and version in pyproject.toml are the same.
     pyproject = Path(_path).with_name('pyproject.toml').read_text()
     match = re.search(r'^version = "(.*)"$', pyproject, re.MULTILINE)
     assert match.group(1) == cmdspecs.VERSION
 
 
 def test_version_matches_news():
+    # NEWS has a heading for the current version.
     news = Path(_path).with_name('NEWS').read_text()
     assert 'Version %s,' % cmdspecs.VERSION in news

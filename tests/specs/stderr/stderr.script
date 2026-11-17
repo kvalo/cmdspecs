@@ -1,2 +1,3 @@
 #!/bin/sh
+# Stderr is compared to the .stderr file.
 echo "to stderr" 1>&2

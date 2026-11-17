@@ -1,2 +1,4 @@
 #!/bin/sh
+# DATADIR is available to the script and holds what the test setup wrote
+# there.
 cat "$DATADIR/file.txt"

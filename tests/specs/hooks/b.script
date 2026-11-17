@@ -1,2 +1,3 @@
 #!/bin/sh
+# With a, shows the order in which the hooks run for each test.
 echo "b.script" >> "$SRCDIR/log"

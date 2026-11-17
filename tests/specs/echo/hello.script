@@ -1,2 +1,4 @@
 #!/bin/sh
+# Stdout is compared to hello.stdout, and the setup and setup_once
+# scripts run without their output reaching it.
 echo hello, world
