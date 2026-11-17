@@ -54,6 +54,8 @@ working with code in this repository.
 
 ## Documentation
 
+- NEWS is only for major user visible changes. Don't add entries
+  for small tweaks, internal changes or test changes.
 - Wrap all documentation files (README, NEWS, CLAUDE.md, Markdown,
   etc.) at 72 columns. Code spans and commands that can't be broken
   may exceed it.
