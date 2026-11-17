@@ -239,7 +239,7 @@ class Reporter:
         '''
 
         self.total = len(tests)
-        self.sep('=', 'test session starts', BOLD)
+        self.sep('=', 'cmdspecs session starts', BOLD)
         self.write('platform %s -- Python %s, cmdspecs %s\n' %
                    (sys.platform, platform.python_version(), VERSION))
         for name, value in settings:

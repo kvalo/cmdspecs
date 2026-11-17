@@ -292,7 +292,7 @@ def test_shows_header_and_dots(tmp_path):
     result = run_cmdspecs(spec, cwd=tmp_path)
     assert result.returncode == EXIT_OK, result.stdout + result.stderr
     lines = result.stdout.splitlines()
-    assert 'test session starts' in lines[0]
+    assert 'cmdspecs session starts' in lines[0]
     assert 'collected 2 tests' in lines
     assert any(x.startswith('%s .. ' % spec) and x.endswith('[100%]')
                for x in lines)

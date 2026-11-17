@@ -58,18 +58,6 @@ is chosen, add it to:
 - The hosting service settings and the git remote, so that the
   repository description and the URL agree.
 
-## Rename the "test session starts" banner
-
-`Reporter` prints `test session starts` as its first line, inspired
-by pytest. When a project runs both cmdspecs and pytest from the
-same script, such as `./check`, the output of the two is hard to tell
-apart. Rename the banner to something like `cmdspecs session starts`.
-The banner is in `Reporter` (`self.sep('=', 'test session starts',
-BOLD)`), and it is also checked by `tests/test_cmdspecs.py` and
-`tests/test_specs.py` and shown in the examples in `cmdspecs.1`.
-Other pytest-style lines, such as the final summary line, may need
-the same treatment.
-
 ## Support Windows
 
 cmdspecs has not been tried on Windows. Reading the code shows what

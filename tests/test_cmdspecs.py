@@ -399,7 +399,7 @@ def test_reporter_start_shows_header():
     reporter = cmdspecs.Reporter(output, width=40)
     reporter.start([cmdspecs.TestCase('foo', 'd/foo')])
     lines = output.getvalue().splitlines()
-    assert lines[0] == '========= test session starts ========='
+    assert lines[0] == '======= cmdspecs session starts ======='
     assert lines[1].startswith('platform ')
     assert lines[1].endswith(', cmdspecs %s' % cmdspecs.VERSION)
     assert lines[2:] == ['collected 1 test', '']
