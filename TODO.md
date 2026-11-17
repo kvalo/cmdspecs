@@ -171,3 +171,32 @@ is chosen, add it to:
   points at cmdspecs(1).
 - The hosting service settings and the git remote, so that the
   repository description and the URL agree.
+
+## Some options have no short form
+
+`-t`, `-k` and `-v` have a short form, but `--timings`, `--color` and
+`--version` do not. Is that confusing? Users may expect `-V` for
+`--version` and perhaps `-T` for `--timings`, and the mix looks
+inconsistent in `--help`. On the other hand, short options are scarce,
+and rarely used options are better left long, which also keeps the
+short ones free for later. Decide whether to add some, and if so
+update the manpage SYNOPSIS and OPTIONS sections.
+
+## Convert README to Markdown
+
+`README` is plain text. Convert it to `README.md` so that it renders
+on the hosting service. Then update everything which refers to the
+old name: `pyproject.toml` (`readme`), `MANIFEST.in`, and the
+mentions in `CLAUDE.md` and the other documentation.
+
+## Rename the "test session starts" banner
+
+`Reporter` prints `test session starts` as its first line, inspired
+by pytest. When a project runs both cmdspecs and pytest from the
+same script, such as `./check`, the output of the two is hard to tell
+apart. Rename the banner to something like `cmdspecs session starts`.
+The banner is in `Reporter` (`self.sep('=', 'test session starts',
+BOLD)`), and it is also checked by `tests/test_cmdspecs.py` and
+`tests/test_specs.py` and shown in the examples in `cmdspecs.1`.
+Other pytest-style lines, such as the final summary line, may need
+the same treatment.
