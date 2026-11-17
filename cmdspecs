@@ -16,12 +16,25 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 
 
 VERSION = '0.33+git'
 
-# The exit status when a directory has no tests, the same as in pytest.
+# The exit statuses follow those of pytest where that makes sense.
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_INTERRUPTED = 2
+EXIT_INTERNAL = 3
+EXIT_USAGE = 4
 EXIT_NO_TESTS = 5
+
+
+class ArgumentParser(argparse.ArgumentParser):
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, '%s: error: %s\n' % (self.prog, message))
 
 
 def cat(filename):
@@ -286,7 +299,7 @@ class Reporter:
 class CommandTester:
 
     def make_parser(self):
-        parser = argparse.ArgumentParser(
+        parser = ArgumentParser(
             description='blackbox testing of Unix command line tools',
             prog='cmdspecs'
         )
@@ -379,7 +392,7 @@ class CommandTester:
             sys.stderr.write('cmdspecs: %s\n' % error)
 
         if failed or len(self.errors) > empty_dirs:
-            sys.exit(1)
+            sys.exit(EXIT_FAILED)
         if empty_dirs:
             sys.exit(EXIT_NO_TESTS)
 
@@ -637,12 +650,22 @@ def main():
         CommandTester().run()
     except KeyboardInterrupt:
         sys.stderr.write('\ncmdspecs: interrupted\n')
-        sys.exit(130)
+        sys.exit(EXIT_INTERRUPTED)
     except BrokenPipeError:
         # Python flushes stdout at exit, so point it elsewhere to avoid
         # a second error.
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
-        sys.exit(1)
+        sys.exit(EXIT_FAILED)
+    except OSError as e:
+        sys.stderr.write('cmdspecs: %s\n' % (
+            '%s: %s' % (e.filename, e.strerror) if e.filename
+            else e.strerror or e))
+        sys.exit(EXIT_FAILED)
+    except Exception as e:
+        traceback.print_exc()
+        sys.stderr.write('cmdspecs: internal error: %s: %s\n' %
+                         (type(e).__name__, e))
+        sys.exit(EXIT_INTERNAL)
 
 
 if __name__ == '__main__':

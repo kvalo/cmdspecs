@@ -12,6 +12,8 @@ import re
 import time
 from pathlib import Path
 
+import pytest
+
 
 # cmdspecs is a script without a .py extension, so load it explicitly.
 _path = str(Path(__file__).resolve().parent.parent / 'cmdspecs')
@@ -498,3 +500,46 @@ def test_version_matches_news():
     # NEWS has a heading for the current version.
     news = Path(_path).with_name('NEWS').read_text()
     assert 'Version %s,' % cmdspecs.VERSION in news
+
+
+def test_manpage_documents_all_exit_statuses():
+    # The EXIT STATUS section of the manpage lists exactly the statuses
+    # which the EXIT_* constants define.
+    manpage = Path(_path).with_name('cmdspecs.1').read_text()
+    section = manpage.split('\n.SH "EXIT STATUS"\n')[1].split('\n.SH ')[0]
+    documented = {int(x) for x in re.findall(r'^\.B (\d+)$', section,
+                                             re.MULTILINE)}
+    defined = {value for name, value in vars(cmdspecs).items()
+               if name.startswith('EXIT_')}
+    assert documented == defined
+
+
+def test_internal_error_exits_with_internal_status(monkeypatch, capsys):
+    # A bug in cmdspecs shows a traceback and exits with 3, which is
+    # different from a failed test.
+    def broken(self, testdirs):
+        raise RuntimeError('boom')
+
+    monkeypatch.setattr(cmdspecs.CommandTester, 'run_tests', broken)
+    monkeypatch.setattr(cmdspecs.sys, 'argv', ['cmdspecs', 'tests/specs/echo'])
+    with pytest.raises(SystemExit) as excinfo:
+        cmdspecs.main()
+    assert excinfo.value.code == cmdspecs.EXIT_INTERNAL
+    err = capsys.readouterr().err
+    assert 'Traceback' in err
+    assert 'cmdspecs: internal error: RuntimeError: boom\n' in err
+
+
+def test_io_error_exits_with_failed_status(monkeypatch, capsys):
+    # An I/O error in cmdspecs itself, here a tempdir which can't be
+    # created, gives a one-line message and status 1, not a traceback.
+    def broken(prefix):
+        raise PermissionError(13, 'Permission denied', '/nosuch')
+
+    monkeypatch.setattr(cmdspecs.tempfile, 'mkdtemp', broken)
+    monkeypatch.setattr(cmdspecs.sys, 'argv', ['cmdspecs', 'tests/specs/echo'])
+    with pytest.raises(SystemExit) as excinfo:
+        cmdspecs.main()
+    assert excinfo.value.code == cmdspecs.EXIT_FAILED
+    assert capsys.readouterr().err == \
+        'cmdspecs: /nosuch: Permission denied\n'

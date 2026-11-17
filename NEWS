@@ -12,6 +12,12 @@ Version 0.33+git, not yet released
   of `setup_once` and `teardown_once` scripts, and is red when there
   are any.
 
+* The exit statuses now follow pytest where that makes sense. An
+  interrupt exits with 2 (was 130) and a usage error with 4 (was 2).
+  An internal error in cmdspecs exits with 3 and shows a traceback,
+  instead of looking like a failed test with 1, and an I/O error such
+  as an unwritable temporary directory gives a short message and 1.
+
 Version 0.33, released 2026-11-15
 ---------------------------------
 

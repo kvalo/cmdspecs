@@ -249,6 +249,9 @@ Show the version number and exit.
 .BR \-h ", " \-\-help
 Show a help message and exit.
 .SH "EXIT STATUS"
+The exit statuses follow those of
+.BR pytest (1)
+where that makes sense.
 .TP
 .B 0
 All tests passed.
@@ -258,9 +261,20 @@ At least one test failed, a
 .I setup_once
 or
 .I teardown_once
-script failed, or the output could not be written.
+script failed, or a file could not be read or written, for example
+the output or the temporary directory.
 .TP
 .B 2
+.B cmdspecs
+was interrupted.
+.TP
+.B 3
+An internal error: a bug in
+.BR cmdspecs .
+A traceback is shown.
+Please report it.
+.TP
+.B 4
 The command line was invalid:
 an unknown option, a directory which could not be read, or a
 .B \-\-test
@@ -272,10 +286,6 @@ A directory on the command line contains no tests.
 This is not checked with
 .BR \-\-test ,
 and the tests of the other directories are still run.
-.TP
-.B 130
-.B cmdspecs
-was interrupted.
 .SH EXAMPLE
 To test that the
 .BR echo (1)

@@ -238,28 +238,3 @@ directories run at the same time. That speeds up only suites which
 are split into many directories, and it changes `DATADIR` from one
 for the run to one for each directory, which is visible to the
 scripts which share data between directories.
-
-## Review and clean up the exit status handling
-
-The exit statuses are scattered over `cmdspecs`: `EXIT_NO_TESTS` is a
-named constant, but `CommandTester.run()` and `main()` still use the
-literals `1` and `130`, and the status 2 for a bad command line comes
-from `parser.error()` in argparse. The EXIT STATUS section of the
-manpage describes them separately, so it is easy for the code, the
-manpage and the tests to disagree.
-
-To do:
-
-* Define an `EXIT_*` constant for every status and use only those,
-  also in the tests, instead of literal numbers.
-* Check that the values are consistent: that every exit path uses the
-  documented status, and that the manpage lists exactly the statuses
-  the code can return. A unit test could compare them.
-* Match pytest where it makes sense. pytest uses 0 for all passed, 1
-  for failed tests, 2 for an interrupt, 3 for an internal error, 4
-  for a usage error and 5 for no tests collected. cmdspecs uses 2 for
-  usage errors (argparse's default) and 130 for an interrupt (the
-  shell convention for SIGINT), so matching pytest fully changes
-  existing statuses that users may rely on. Decide which ones to
-  change, and whether a failing `setup_once` or `teardown_once` is
-  1 or an internal error like 3.

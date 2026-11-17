@@ -11,6 +11,8 @@ working with code in this repository.
 - `cmdspecs.1` is the manpage. Edit it directly; nothing generates
   it. View it with `man -l cmdspecs.1`. When you add or change a
   command line option, update its SYNOPSIS and OPTIONS sections.
+  Whenever you change or add an exit status, update its EXIT STATUS
+  section too.
 - `pyproject.toml` holds all the packaging metadata, and there is no
   `setup.py`. cmdspecs is not published on PyPI and won't be, so don't
   add PyPI-only metadata (classifiers, keywords) or
