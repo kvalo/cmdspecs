@@ -5,39 +5,6 @@ looked at but deliberately left alone, mostly because fixing them
 needs a design decision or changes the behaviour users may rely on.
 The function names refer to the `cmdspecs` script.
 
-## A script killed by a signal is reported as a negative exit code
-
-`subprocess.run()` returns `-N` as the return code when the process
-was killed by signal `N`, and `CommandTester.run_test()` compares
-that number as is with the content of `foo.exit`. A crashing test
-is reported as:
-
-    got exit code -11, expected 0
-
-This is cryptic for anybody who does not know the convention of the
-Python subprocess module, and it is different from what a shell
-shows in `$?` for the same thing, which is 139 (128 + 11). A test
-which is expected to die from a signal, such as a test of a signal
-handler, can only be written by putting `-11` in `foo.exit`, which
-is undocumented.
-
-In practice it is rare, because `foo.script` is normally a shell
-script, and the shell itself exits normally with 128 + N when the
-command it ran was killed. The negative code is seen only when the
-script itself is killed, or when it ends with `exec`.
-
-Options:
-
-- Keep the comparison but improve the message, for example
-  `killed by signal SIGSEGV, expected exit code 0`, using
-  `signal.Signals(N).name`.
-- Map the code to 128 + N before comparing, like the shell does.
-  Then `foo.exit` works the same no matter whether the script uses
-  `exec`. This breaks any existing `foo.exit` file with a negative
-  number.
-- Do both, and document in the manpage what `foo.exit` has to
-  contain for a signal.
-
 ## Running tests in parallel
 
 The tests are run one at a time in `CommandTester.run_tests()`.

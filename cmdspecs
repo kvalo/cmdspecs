@@ -66,6 +66,14 @@ def remove(filename):
         os.remove(filename)
 
 
+def describe_exit(code):
+    '''Return exit code as text, with the signal name if it looks like one.'''
+    try:
+        return '%d (%s)' % (code, signal.Signals(code - 128).name)
+    except ValueError:
+        return str(code)
+
+
 def mtime(filename):
     '''Return modification time of file in the format of diff -u.'''
     try:
@@ -525,6 +533,8 @@ class CommandTester:
     def run_process(self, script_name, test, **kwargs):
         '''Run a script and return its exit code.
 
+        A script killed by signal N returns 128 + N, like in a shell.
+
         The script gets a process group of its own, so that on a
         timeout or an interrupt its children can be killed too and
         don't keep the output files open. Raise ScriptTimeout if the
@@ -534,7 +544,8 @@ class CommandTester:
         proc = subprocess.Popen([script_name], env=self.add_to_env(test),
                                 start_new_session=True, **kwargs)
         try:
-            return proc.wait(timeout=self.timeout)
+            returncode = proc.wait(timeout=self.timeout)
+            return 128 - returncode if returncode < 0 else returncode
         except subprocess.TimeoutExpired:
             self.kill_group(proc)
             raise ScriptTimeout()
@@ -582,7 +593,7 @@ class CommandTester:
                     stdout=output,
                     stderr=subprocess.STDOUT if output else None)
                 if returncode:
-                    msg = 'exited with %d' % returncode
+                    msg = 'exited with %s' % describe_exit(returncode)
             except ScriptTimeout:
                 msg = 'timed out after %g seconds' % self.timeout
             except OSError as e:
@@ -675,7 +686,8 @@ class CommandTester:
         elif exit_code != expected_exit:
             failures.append(TestFailure(test,
                                         'got exit code %s, expected %s' %
-                                        (exit_code, expected_exit)))
+                                        (describe_exit(exit_code),
+                                         expected_exit)))
 
         return failures + teardown_failures
 

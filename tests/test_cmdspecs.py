@@ -144,6 +144,29 @@ def test_run_test_reports_actual_exit_code(tmp_path):
         ['got exit code 3, expected 0']
 
 
+def test_run_test_reports_signal_as_shell_exit_code(tmp_path):
+    # A script killed by a signal gets 128 + N, like in a shell, and
+    # the signal is named.
+    make_script(tmp_path, 'foo', 'kill -KILL $$\n')
+    assert run_single_test(tmp_path) == \
+        ['got exit code 137 (SIGKILL), expected 0']
+
+
+def test_run_test_accepts_signal_exit_code(tmp_path):
+    make_script(tmp_path, 'foo', 'kill -KILL $$\n')
+    (tmp_path / 'foo.exit').write_text('137\n')
+    assert run_single_test(tmp_path) == []
+
+
+def test_run_test_reports_signal_killed_setup(tmp_path):
+    make_script(tmp_path, 'foo', 'true\n')
+    setup = tmp_path / 'foo.setup'
+    setup.write_text('#!/bin/sh\nkill -KILL $$\n')
+    setup.chmod(0o755)
+    assert run_single_test(tmp_path) == \
+        ['%s: exited with 137 (SIGKILL)' % setup]
+
+
 def test_run_test_accepts_expected_exit_code(tmp_path):
     # A .exit file sets the expected exit code, and surrounding
     # whitespace in it is ignored.

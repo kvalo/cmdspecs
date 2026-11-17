@@ -64,6 +64,9 @@ If it is missing, the error output is expected to be empty.
 .I foo.exit
 The expected exit status.
 If it is missing, the exit status is expected to be zero.
+A script killed by signal
+.I N
+has the exit status 128+\fIN\fR, as in a shell.
 .TP
 .I foo.setup
 A script to run before the test.
