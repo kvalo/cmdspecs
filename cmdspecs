@@ -433,7 +433,7 @@ class CommandTester:
         return [x for x in filenames if x in wanted]
 
     def setup_tempdir(self):
-        self.tempdir = tempfile.mkdtemp()
+        self.tempdir = tempfile.mkdtemp(prefix='cmdspecs-')
         self.datadir = os.path.join(self.tempdir, 'data')
         os.mkdir(self.datadir)
 

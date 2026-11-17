@@ -268,6 +268,9 @@ def test_header_shows_settings(tmp_path):
     assert 'srcdir: %s' % tmp_path in lines
     assert any(x.startswith('datadir: ') and x.endswith('/data')
                for x in lines)
+    # The work area name says which program made it.
+    assert any(x.startswith('datadir: ') and '/cmdspecs-' in x
+               for x in lines)
     assert 'keep: yes' in lines
     assert 'testdirs: %s' % spec in lines
     assert 'tests: empty' in lines
