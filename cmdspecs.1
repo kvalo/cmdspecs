@@ -8,60 +8,86 @@
 cmdspecs \- blackbox testing of Unix command line tools
 .SH SYNOPSIS
 .B cmdspecs
+.RB [ \-h ]
 .RB [ \-t
 .IR TEST ]...\&
 .RB [ \-\-timings ]
 .RB [ \-k ]
 .RB [ \-v ]
-.RB [ \-\-color =\fIWHEN\fR]
+.RB [ \-\-color =\c
+.IR WHEN ]
 .RB [ \-\-version ]
 .IR DIR ...
 .SH DESCRIPTION
 .B cmdspecs
-black box tests Unix command line tools.
+blackbox tests Unix command line tools.
 Given some test scripts, their inputs, and expected outputs,
 it verifies that the command line produces the expected output.
 If not, it reports problems, and shows the differences.
 .PP
-Each test case
-.I foo
-consists of the following files:
+A
+.I test case
+is a script plus the files that describe what it should do and
+produce.
+Test cases live in a
+.I test directory
+and
+.B cmdspecs
+is given one or more test directories as the
+.I DIR
+arguments.
+At least one is required.
+.SS Test files
+Each test case has a name, here
+.IR foo ,
+and consists of the following files, all in the test directory:
 .TP
 .I foo.script
-a script to run the test (this is required)
+A script to run the test.
+This is required.
 .TP
 .I foo.stdin
-the file fed to standard input
+The file fed to standard input.
+If it is missing, standard input is empty.
 .TP
 .I foo.stdout
-the expected output to the standard output
+The expected standard output.
+If it is missing, the output is expected to be empty.
 .TP
 .I foo.stderr
-the expected output to the standard error
+The expected standard error.
+If it is missing, the error output is expected to be empty.
 .TP
 .I foo.exit
-the expected exit code
+The expected exit status.
+If it is missing, the exit status is expected to be zero.
 .TP
 .I foo.setup
-a script to run before the test
+A script to run before the test.
 .TP
 .I foo.teardown
-a script to run after test
+A script to run after the test.
 .PP
-Usually, a single test is not enough. All tests are put into the
-same directory, and they may share some setup and teardown code:
+Usually, a single test is not enough.
+All the tests are put into the same directory,
+and they may share some setup and teardown code:
 .TP
 .I setup_once
-a script to run once, before any tests
+A script to run once, before any tests.
 .TP
 .I setup
-a script to run before each test
+A script to run before each test.
 .TP
 .I teardown
-a script to run after each test
+A script to run after each test.
 .TP
 .I teardown_once
-a script to run once, after all tests
+A script to run once, after all tests.
+.PP
+Apart from
+.IR foo.script ,
+all of these files are optional.
+If a setup or teardown script is missing, it is simply not executed.
 .PP
 The scripts are usually shell scripts, but any executable program
 will do.
@@ -70,97 +96,105 @@ executes them directly, so they must have the execute permission set,
 and a script needs a
 .B #!\&
 line to choose its interpreter.
-.PP
-.B cmdspecs
-is given the name of the directory with all the tests,
-or several such directories.
-Each directory has its own setup and teardown scripts,
+They are run in the current directory of
+.BR cmdspecs ,
+not in the test directory,
+and a script can find that directory in the
+.B SRCDIR
+environment variable.
+The setup and teardown scripts always get an empty standard input.
+.SS Execution order
+Each test directory has its own setup and teardown scripts,
 which are run only for the tests in that directory.
-For each directory
+For each directory,
 .B cmdspecs
 does the following:
-.PP
-.na
-.nh
-\(bu execute
-.I setup_once
-.PP
-\(bu for each test case (unique prefix 
-.IR foo ):
-.RS
-.HP 2
-\(em execute
-.I setup
-.HP 2
-\(em execute 
-.I foo.setup
-.HP 2
-\(em execute the command, by running 
+.IP 1. 3
+Execute
+.IR setup_once .
+.IP 2. 3
+For each test case
+.IR foo ,
+in turn:
+.RS 3
+.IP a. 3
+Execute
+.IR setup .
+.IP b. 3
+Execute
+.IR foo.setup .
+.IP c. 3
+Execute the command by running
 .IR foo.script ,
-and redirecting standard input to come from 
+with standard input coming from
 .IR foo.stdin ,
-and capturing standard output and error and exit codes
-.HP 2
-\(em execute
-.I foo.teardown
-.HP 2
-\(em execute 
-.I teardown
-.HP 2
-\(em report result of test: does exit code match
-.IR foo.exit , 
-standard output match 
-.IR foo.stdout , 
-and standard error match 
+and capture its standard output, standard error and exit status.
+.IP d. 3
+Execute
+.IR foo.teardown .
+.IP e. 3
+Execute
+.IR teardown .
+.IP f. 3
+Report the result of the test:
+does the exit status match
+.IR foo.exit ,
+the standard output match
+.IR foo.stdout ,
+and the standard error match
 .IR foo.stderr ?
 .RE
-.fi
-.hy
-.PP
-\(bu execute 
+.IP 3. 3
+Execute
+.IR teardown_once .
+.SS Failure handling
+A test fails if its output does not match, and also when one of its
+setup or teardown scripts fails.
+In detail:
+.TP
+.I setup_once
+If it fails, no more tests are run for that directory and
 .I teardown_once
-.PP
-Except for
-.IR foo.script , 
-all of these files are optional. 
-If a setup or teardown script is missing, it is simply not executed. 
-If one of the standard input, output, or error files is missing, 
-it is treated as if it were empty. 
-The setup and teardown scripts always get an empty standard input.
-If the exit code file is missing, it is treated as if it specified an
-exit code of zero.
-.PP
-A test fails also when one of its setup or teardown scripts fails.
-If
-.I foo.script
-fails or its results do not match the expected ones, both
-.I foo.teardown
-and
-.I teardown
-are still run.
-If
-.I foo.setup
-fails,
-.I foo.script
-and
-.I foo.teardown
-are not run, but
-.I teardown
-is.
-If
+is not run.
+.TP
 .I setup
-fails, none of
+If it fails, the test fails and none of
 .IR foo.setup ,
 .IR foo.script ,
 .I foo.teardown
 and
 .I teardown
 are run.
-If
+.TP
+.I foo.setup
+If it fails, the test fails.
+.I foo.script
+and
+.I foo.teardown
+are not run, but
+.I teardown
+is.
+.TP
+.I foo.script
+If it fails or its results do not match the expected ones,
+the test fails, and both
+.I foo.teardown
+and
+.I teardown
+are still run.
+.TP
+.IR foo.teardown ", " teardown
+If either fails, the test fails.
+.TP
+.I teardown_once
+If it fails, the run fails, but the test results are not affected.
+.PP
+A test also fails if
 .I foo.script
 is missing or
 .I foo.exit
-is not valid,
+is not valid.
+Then
 .I foo.setup
 and
 .I foo.teardown
@@ -169,57 +203,38 @@ are not run, but
 and
 .I teardown
 are.
-If
-.I setup_once
-fails, no more tests are run and
-.I teardown_once
-is not run for that directory.
-.PP
-The scripts may use the following environment variables:
-.TP
-.B DATADIR
-a temporary directory where files may be created by the test.
-There is only one such directory for the whole run:
-all tests in all directories share it,
-and it is not emptied between tests.
-It is removed when
-.B cmdspecs
-exits, unless
-.B \-\-keep
-is used and the run fails or is interrupted.
-.TP
-.B TESTNAME
-name of the current test (will be empty for 
-.B setup_once
-and
-.BR teardown_once )
-.TP
-.B SRCDIR
-directory from which
-.B cmdspecs
-was launched
 .SH OPTIONS
 .TP
 .BR \-t ", " \-\-test =\fITEST\fR
-Run only the test
-.IR TEST .
+Run only the test named
+.IR TEST ,
+which is the
+.I foo
+of
+.IR foo.script ,
+without the directory.
+The tests in all the given directories with that name are run.
 Can be given many times.
 .TP
 .B \-\-timings
-Report how long each test takes.
+Report how long the whole run and each test took,
+and each script of a test,
+after the test summary.
 .TP
 .BR \-k ", " \-\-keep
-Keep temporary data on failure.
-If a test fails, or a
+Keep the temporary directory on failure.
+It is kept if a test fails, a
 .B setup_once
 or
 .B teardown_once
 script fails, or
 .B cmdspecs
-is interrupted or hits an internal error, the temporary directory is not
-removed, and its location is shown on a line starting with
+is interrupted or hits an internal error.
+Its location is shown on a line starting with
 .BR "Test work area:" .
-The line is after the test summary, or on stderr when there is no summary.
+The line is after the test summary,
+or on stderr when there is no summary.
+The value of
 .B DATADIR
 is the
 .I data
@@ -230,6 +245,8 @@ Show the name and result of each test on a line of its own,
 instead of a dot for each passed test and
 .B F
 for each failed one.
+In this form the name is shown as
+.IR DIR :: foo .
 .TP
 .BR \-\-color =\fIWHEN\fR
 Color the output.
@@ -288,44 +305,107 @@ A directory on the command line contains no tests.
 This is not checked with
 .BR \-\-test ,
 and the tests of the other directories are still run.
-.SH EXAMPLE
+.SH ENVIRONMENT
+.B cmdspecs
+sets the following variables for all the scripts it runs:
+.TP
+.B DATADIR
+A temporary directory where files may be created by the test.
+There is only one such directory for the whole run:
+all tests in all directories share it,
+and it is not emptied between tests.
+It is removed when
+.B cmdspecs
+exits, unless
+.B \-\-keep
+is used and the run fails or is interrupted.
+.TP
+.B TESTNAME
+The name of the current test.
+It is empty for
+.B setup_once
+and
+.BR teardown_once .
+.TP
+.B SRCDIR
+The directory from which
+.B cmdspecs
+was launched.
+.PP
+.B cmdspecs
+itself reads
+.BR NO_COLOR ,
+which turns off colored output when set to a non-empty value
+and
+.B \-\-color
+is
+.BR auto .
+.SH FILES
+When an output does not match,
+.B cmdspecs
+writes files next to the test's own files,
+in the test directory:
+.TP
+.IR foo.stdout\-actual ", " foo.stderr\-actual
+The actual standard output and standard error of
+.IR foo.script .
+.TP
+.IR foo.stdout\-diff ", " foo.stderr\-diff
+The differences between the expected and the actual output.
+.PP
+These files are not removed.
+Do not commit them to version control.
+.SH EXAMPLES
 To test that the
 .BR echo (1)
 command outputs the expected string,
-create a file called
-.I echo-tests/hello.script
-containing the following content:
-.IP
+create a directory and a file called
+.I echo\-tests/hello.script
+in it, containing the following content:
+.PP
+.RS
 .nf
 #!/bin/sh
 echo hello, world
 .fi
+.RE
 .PP
 The script must be executable:
-.IP
-chmod +x echo-tests/hello.script
+.PP
+.RS
+.nf
+$ mkdir echo\-tests
+$ chmod +x echo\-tests/hello.script
+.fi
+.RE
 .PP
 Also create the file
-.I echo-tests/hello.stdout
+.I echo\-tests/hello.stdout
 containing:
-.IP
+.PP
+.RS
+.nf
 hello, world
+.fi
+.RE
 .PP
 Then you can run the tests:
-.IP
+.PP
+.RS
 .nf
-$ cmdspecs echo-tests
-============== test session starts ==============
-platform linux \-\- Python 3.13.5, cmdspecs 0.33
+$ cmdspecs echo\-tests
+=================== test session starts ====================
+platform linux \-\- Python 3.13.5, cmdspecs X.Y
 srcdir: /home/user
-datadir: /tmp/cmdspecs-ab12cd34/data
+datadir: /tmp/cmdspecs\-ab12cd34/data
 keep: no
 testdirs: echo\-tests
 collected 1 test
 
-echo\-tests .                               [100%]
-=============== 1 passed in 0.00s ===============
+echo\-tests .                                          [100%]
+==================== 1 passed in 0.00s =====================
 .fi
+.RE
 .PP
 The header shows the values of
 .B SRCDIR
@@ -340,44 +420,54 @@ the selected tests.
 If you change the stdout file to be something else,
 .B cmdspecs
 will report the differences:
-.IP
+.PP
+.RS
 .nf
-$ cmdspecs echo-tests
-============== test session starts ==============
-platform linux \-\- Python 3.13.5, cmdspecs 0.33
+$ cmdspecs echo\-tests
+=================== test session starts ====================
+platform linux \-\- Python 3.13.5, cmdspecs X.Y
 srcdir: /home/user
-datadir: /tmp/cmdspecs-ab12cd34/data
+datadir: /tmp/cmdspecs\-ab12cd34/data
 keep: no
 testdirs: echo\-tests
 collected 1 test
 
-echo\-tests F                               [100%]
+echo\-tests F                                          [100%]
 
-=================== FAILURES ====================
-_____________________ hello _____________________
+========================= FAILURES =========================
+__________________________ hello ___________________________
 stdout diff:
-\-\-\- echo\-tests/hello.stdout	2011\-09\-11 19:14:47 +0100
-+++ echo\-tests/hello.stdout\-actual	2011\-09\-11 19:14:49 +0100
+\-\-\- echo\-tests/hello.stdout    2025\-01\-01 10:00:00.000000 +0000
++++ echo\-tests/hello.stdout\-actual    2025\-01\-01 10:00:01.000000 +0000
 @@ \-1 +1 @@
 \-something else
 +hello, world
-============ short test summary info ============
+================= short test summary info ==================
 FAILED hello \- stdout diff:
-=============== 1 failed in 0.00s ===============
+==================== 1 failed in 0.00s =====================
 .fi
+.RE
 .PP
-Furthermore, the 
-.I echo-tests
-directory will contain the actual output files,
-and diffs from the expected files,
-for the outputs which differ.
-If one of the actual output files is actually correct,
-you can actually rename it to be the expected file.
-Actually,
-that's a very convenient way of creating the expected output files:
-you run the test,
-fixing things,
-until you've manually checked the actual output is correct,
-then you rename the file.
+The
+.I echo\-tests
+directory now also contains
+.I hello.stdout\-actual
+with the actual output, and
+.I hello.stdout\-diff
+with the differences.
+If the actual output is correct, you can rename it to be the expected
+file:
+.PP
+.RS
+.nf
+$ mv echo\-tests/hello.stdout\-actual echo\-tests/hello.stdout
+.fi
+.RE
+.PP
+This is a convenient way of creating the expected output files:
+write the script, run it, check by hand that the actual output is
+correct, and then rename the file.
 .SH "SEE ALSO"
-.BR diff (1).
+.BR diff (1),
+.BR pytest (1),
+.BR sh (1)
