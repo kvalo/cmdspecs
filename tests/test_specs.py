@@ -504,3 +504,21 @@ def test_interrupt_exits_with_interrupted_status(tmp_path):
         result.stdout + result.stderr
     assert 'cmdspecs: interrupted\n' in result.stderr
     assert 'Traceback' not in result.stderr
+
+
+def test_keep_option_keeps_work_area_on_interrupt(tmp_path):
+    # --keep also keeps the work area when cmdspecs is interrupted, and
+    # tells where it is on stderr as there is no summary.
+    write_script(tmp_path / 'foo.script',
+                 'touch "$DATADIR/left-over"\nkill -INT $PPID\nsleep 5\n')
+    result = run_cmdspecs('--keep', tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_INTERRUPTED, \
+        result.stdout + result.stderr
+    prefix = 'Test work area: '
+    lines = [x for x in result.stderr.splitlines() if x.startswith(prefix)]
+    assert len(lines) == 1
+    workdir = Path(lines[0][len(prefix):])
+    try:
+        assert (workdir / 'data' / 'left-over').exists()
+    finally:
+        shutil.rmtree(workdir)
