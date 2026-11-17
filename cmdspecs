@@ -300,29 +300,39 @@ class CommandTester:
 
     def make_parser(self):
         parser = ArgumentParser(
-            description='blackbox testing of Unix command line tools',
+            description='Blackbox test Unix command line tools. '
+                        'Each directory holds test cases: a NAME.script '
+                        'file with optional NAME.stdin, .stdout, '
+                        '.stderr, .exit, .setup and .teardown files, '
+                        'plus shared setup and teardown scripts. '
+                        'cmdspecs runs each script and compares its '
+                        'output and exit status to the expected '
+                        'files, showing differences on mismatch.',
+            epilog='See cmdspecs(1) for more information.',
             prog='cmdspecs'
         )
         parser.add_argument('-c', '--command',
-                            help='ignored for backwards compatibility')
+                            help='ignored, accepted for backwards '
+                                 'compatibility')
         parser.add_argument('-t', '--test', action='append',
-                            help='run only TEST '
+                            help='run only the test named TEST '
                                  '(can be given many times)',
                             metavar='TEST')
         parser.add_argument('--timings', action='store_true',
                             help='report how long each test takes')
         parser.add_argument('-k', '--keep', action='store_true',
-                            help='keep temporary data on failure')
+                            help='keep the temporary directory '
+                                 'if a test fails')
         parser.add_argument('-v', '--verbose', action='store_true',
                             help='show the name and result of each test')
         parser.add_argument('--color', choices=['auto', 'yes', 'no'],
                             default='auto',
-                            help='color the output: auto (the default) '
-                                 'colors it on a terminal')
+                            help='color the output; auto (the default) '
+                                 'colors only on a terminal')
         parser.add_argument('--version', action='version',
                             version='%(prog)s ' + VERSION)
         parser.add_argument('dirnames', nargs='+',
-                            help='directories containing tests')
+                            help='directories containing the test cases')
         return parser
 
     def run(self, argv=None):
