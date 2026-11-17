@@ -186,7 +186,7 @@ It is removed when
 .B cmdspecs
 exits, unless
 .B \-\-keep
-is used and a test fails.
+is used and the run fails.
 .TP
 .B TESTNAME
 name of the current test (will be empty for 
@@ -210,7 +210,11 @@ Report how long each test takes.
 .TP
 .BR \-k ", " \-\-keep
 Keep temporary data on failure.
-The temporary directory is then not removed, and its location is
+If a test fails, or a
+.B setup_once
+or
+.B teardown_once
+script fails, the temporary directory is not removed, and its location is
 shown after the test summary on a line starting with
 .BR "Test work area:" .
 .B DATADIR

@@ -5,63 +5,6 @@ deliberately left alone, mostly because fixing them needs a design
 decision or changes the behaviour users may rely on. The function
 names refer to the `cmdspecs` script.
 
-## The --keep option does not keep the data on every failure
-
-The manpage and `--help` describe `-k`/`--keep` as "keep temporary
-data on failure", but `CommandTester.run()` decides it like this:
-
-    failed = self.run_tests(testdirs)
-    keep_tempdir = bool(failed) and args.keep
-
-`failed` is the list of failed tests only, so the temporary directory
-is kept only when at least one test failed. It is removed in these
-cases even with `--keep`, although the run did not succeed:
-
-- A `setup_once` script fails. The failure goes to
-  `CommandTester.errors`, not to `failed`, and `run_tests()` stops
-  there. If no test failed before that, which is always the case
-  when it is the `setup_once` of the first directory, the directory
-  is removed and cmdspecs exits with 1. This is the case where the
-  data is needed the most: the script may have left half-made files
-  in `DATADIR`, and its exit status is the only other clue.
-- A `teardown_once` script fails while all the tests passed. Same
-  as above, the failure is only in `CommandTester.errors`.
-- cmdspecs is interrupted with Ctrl-C, or an unexpected exception is
-  raised while the tests run. `keep_tempdir` is still `False` when
-  the `finally` clause runs, so the directory is removed. A user who
-  interrupts a hanging test (see "No timeout for tests") to look at
-  what it left behind finds nothing.
-
-The behaviour is also inconsistent: a failing `setup_once` in the
-second directory keeps the data if a test in the first directory
-happened to fail, and removes it otherwise.
-
-Options:
-
-- Keep the directory whenever cmdspecs is going to exit with 1, that
-  is `bool(failed or self.errors) and args.keep`. Small change which
-  makes the code match the documentation. Users who run with
-  `--keep` all the time get more directories left in `/tmp`, but
-  only from runs which failed anyway.
-- As above, and also keep it on interrupt and on unexpected
-  exceptions. `keep_tempdir` has to be decided before the tests run
-  rather than after, and the `Test work area:` line has to be
-  printed from the interrupt path too, or the user does not know
-  where the directory is. The line goes to stdout after the summary
-  today; on interrupt there is no summary, so stderr next to the
-  `cmdspecs: interrupted` message is the natural place.
-- Keep the directory always when `--keep` is given, also when
-  everything passed. The simplest rule to explain, and useful when
-  writing new tests, but it changes the meaning of the option and
-  fills `/tmp` for those who always use it.
-- Leave the code alone and change the manpage and `--help` to say
-  "when a test fails". No behaviour change, but the option stays
-  useless for debugging `setup_once`.
-
-A fix needs a spec or unit test for a failing `setup_once` with
-`--keep`, and the description of `--keep` in the OPTIONS section of
-the manpage should say exactly when the directory is kept.
-
 ## Output of setup and teardown scripts is not captured
 
 `CommandTester.run_script()` runs the `setup_once`, `setup`,

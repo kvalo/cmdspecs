@@ -167,6 +167,32 @@ def test_keep_option_keeps_work_area_on_failure(tmp_path):
         shutil.rmtree(workdir)
 
 
+@pytest.mark.parametrize('hook', ['setup_once', 'teardown_once'])
+def test_keep_option_keeps_work_area_on_failing_hook(tmp_path, hook):
+    # --keep also keeps the work area when a setup_once or teardown_once
+    # script fails, even if no test failed.
+    write_script(tmp_path / hook, 'touch "$DATADIR/left-over"\nexit 1\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs('--keep', tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    prefix = 'Test work area: '
+    lines = [x for x in result.stdout.splitlines() if x.startswith(prefix)]
+    assert len(lines) == 1
+    workdir = Path(lines[0][len(prefix):])
+    try:
+        assert (workdir / 'data' / 'left-over').exists()
+    finally:
+        shutil.rmtree(workdir)
+
+
+def test_failing_hook_without_keep_removes_work_area(tmp_path):
+    write_script(tmp_path / 'setup_once', 'exit 1\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    assert 'Test work area:' not in result.stdout
+
+
 def test_success_leaves_no_output_files(tmp_path):
     # Running passing tests does not add any files to the spec dir.
     spec = copy_spec('sort', tmp_path)
