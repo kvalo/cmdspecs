@@ -258,6 +258,32 @@ def test_shows_header_and_dots(tmp_path):
                for x in lines)
 
 
+def test_header_shows_settings(tmp_path):
+    # The header shows SRCDIR, DATADIR, whether --keep is enabled, the
+    # test dirs and, when -t is given, the selected tests.
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs('-k', '-t', 'empty', spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = result.stdout.splitlines()
+    assert 'srcdir: %s' % tmp_path in lines
+    assert any(x.startswith('datadir: ') and x.endswith('/data')
+               for x in lines)
+    assert 'keep: yes' in lines
+    assert 'testdirs: %s' % spec in lines
+    assert 'tests: empty' in lines
+
+
+def test_header_shows_keep_disabled(tmp_path):
+    # Without -k the header says so, and no tests line is shown when
+    # all tests are run.
+    spec = copy_spec('sort', tmp_path)
+    result = run_cmdspecs(spec, cwd=tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = result.stdout.splitlines()
+    assert 'keep: no' in lines
+    assert not any(x.startswith('tests: ') for x in lines)
+
+
 def test_verbose_option_shows_test_names(tmp_path):
     # -v prints dir::name PASSED for each test.
     spec = copy_spec('sort', tmp_path)

@@ -378,6 +378,18 @@ def test_reporter_start_shows_header():
     assert lines[2:] == ['collected 1 test', '']
 
 
+def test_reporter_start_shows_settings():
+    # The settings are shown as name: value lines between the platform
+    # line and the number of tests collected.
+    output = io.StringIO()
+    reporter = cmdspecs.Reporter(output, width=40)
+    reporter.start([cmdspecs.TestCase('foo', 'd/foo')],
+                   [('srcdir', '/src'), ('keep', 'no')])
+    lines = output.getvalue().splitlines()
+    assert lines[2:] == ['srcdir: /src', 'keep: no', 'collected 1 test',
+                         '']
+
+
 def test_reporter_shows_dots_per_dir():
     # Results are printed as dots on one line per directory, with a
     # running percentage.

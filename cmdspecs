@@ -194,11 +194,20 @@ class Reporter:
         self.write(percent, self.main_color())
         self.write('\n')
 
-    def start(self, tests):
+    def start(self, tests, settings=()):
+        '''Show the session header.
+
+        settings is a list of (name, value) pairs to show below the
+        platform line.
+
+        '''
+
         self.total = len(tests)
         self.sep('=', 'test session starts', BOLD)
         self.write('platform %s -- Python %s, cmdspecs %s\n' %
                    (sys.platform, platform.python_version(), VERSION))
+        for name, value in settings:
+            self.write('%s: %s\n' % (name, value))
         self.write('collected %d test%s\n' %
                    (self.total, '' if self.total == 1 else 's'), BOLD)
         self.write('\n')
@@ -326,11 +335,17 @@ class CommandTester:
             parser.error('no such test: %s' % ', '.join(missing))
 
         self.setup_reporter(args)
-        self.reporter.start(tests)
-
         self.setup_tempdir()
         keep_tempdir = False
         try:
+            settings = [('srcdir', os.getcwd()),
+                        ('datadir', self.datadir),
+                        ('keep', 'yes' if args.keep else 'no'),
+                        ('testdirs', ', '.join(args.dirnames))]
+            if args.test:
+                settings.append(('tests', ', '.join(args.test)))
+            self.reporter.start(tests, settings)
+
             failed = self.run_tests(testdirs)
             keep_tempdir = bool(failed) and args.keep
         finally:
