@@ -12,6 +12,7 @@ import difflib
 import os
 import platform
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,10 @@ EXIT_INTERRUPTED = 2
 EXIT_INTERNAL = 3
 EXIT_USAGE = 4
 EXIT_NO_TESTS = 5
+
+# Seconds between the SIGTERM and the SIGKILL sent to a script which
+# timed out.
+KILL_GRACE = 2
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -137,6 +142,10 @@ class TestFailure(Exception):
 
     def __str__(self):
         return self.msg
+
+
+class ScriptTimeout(Exception):
+    '''A script was killed because it ran longer than the timeout.'''
 
 
 class ScriptError(Exception):
@@ -301,6 +310,9 @@ class Reporter:
 
 class CommandTester:
 
+    # Seconds a script may run, or None for no limit.
+    timeout = None
+
     def make_parser(self):
         parser = ArgumentParser(
             description='Blackbox test Unix command line tools. '
@@ -320,6 +332,11 @@ class CommandTester:
                             metavar='TEST')
         parser.add_argument('-T', '--timings', action='store_true',
                             help='report how long each test takes')
+        parser.add_argument('-o', '--timeout', type=float,
+                            metavar='SECONDS',
+                            help='kill a test or a setup or teardown '
+                                 'script which runs longer than SECONDS '
+                                 'and report it as failed')
         parser.add_argument('-k', '--keep', action='store_true',
                             help='keep the temporary directory if a '
                                  'test or a script fails, or on interrupt')
@@ -346,6 +363,9 @@ class CommandTester:
 
         parser = self.make_parser()
         args = parser.parse_args(argv)
+        if args.timeout is not None and args.timeout <= 0:
+            parser.error('argument -o/--timeout: must be greater than 0')
+        self.timeout = args.timeout
 
         # The time each script took as (seconds, script) pairs, and the
         # time each test took in total. The keys are path prefixes of
@@ -383,6 +403,8 @@ class CommandTester:
                         ('testdirs', ', '.join(args.dirnames))]
             if args.test:
                 settings.append(('tests', ', '.join(args.test)))
+            if args.timeout is not None:
+                settings.append(('timeout', '%g seconds' % args.timeout))
             self.reporter.start(tests, settings)
 
             failed = self.run_tests(testdirs)
@@ -500,6 +522,41 @@ class CommandTester:
             sys.stderr.write('cmdspecs: could not remove %s\n' %
                              self.tempdir)
 
+    def run_process(self, script_name, test, **kwargs):
+        '''Run a script and return its exit code.
+
+        The script gets a process group of its own, so that on a
+        timeout or an interrupt its children can be killed too and
+        don't keep the output files open. Raise ScriptTimeout if the
+        script runs longer than self.timeout.
+
+        '''
+        proc = subprocess.Popen([script_name], env=self.add_to_env(test),
+                                start_new_session=True, **kwargs)
+        try:
+            return proc.wait(timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            self.kill_group(proc)
+            raise ScriptTimeout()
+        except BaseException:
+            self.kill_group(proc)
+            raise
+
+    def kill_group(self, proc):
+        '''Kill the process group of proc and wait for proc to exit.'''
+        for sig, grace in [(signal.SIGTERM, KILL_GRACE),
+                           (signal.SIGKILL, None)]:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, sig)
+            try:
+                proc.wait(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+        # Also kill what the script left running after it exited.
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+
     def run_script(self, script_name, test=None):
         '''Run a setup or teardown script, if there is one.
 
@@ -518,24 +575,24 @@ class CommandTester:
                     tempfile.TemporaryFile(dir=self.tempdir))
             else:
                 output = None
+            msg = None
             try:
-                result = subprocess.run([script_name],
-                                        env=self.add_to_env(test),
-                                        stdin=subprocess.DEVNULL,
-                                        stdout=output,
-                                        stderr=subprocess.STDOUT
-                                        if output else None,
-                                        check=False)
+                returncode = self.run_process(
+                    script_name, test, stdin=subprocess.DEVNULL,
+                    stdout=output,
+                    stderr=subprocess.STDOUT if output else None)
+                if returncode:
+                    msg = 'exited with %d' % returncode
+            except ScriptTimeout:
+                msg = 'timed out after %g seconds' % self.timeout
             except OSError as e:
                 raise ScriptError(script_name, e.strerror)
-            if result.returncode:
+            if msg:
                 text = ''
                 if output:
                     output.seek(0)
                     text = output.read().decode('utf-8', 'backslashreplace')
-                raise ScriptError(script_name,
-                                  'exited with %d' % result.returncode,
-                                  text)
+                raise ScriptError(script_name, msg, text)
         key = test.path_prefix if test else ALL_TESTS
         self.timings.setdefault(key, []).append(
             (time.monotonic() - started, script_name))
@@ -611,7 +668,11 @@ class CommandTester:
             else:
                 remove(actual_name)
 
-        if exit_code != expected_exit:
+        if exit_code is None:
+            # First, as that is the cause of any output differences.
+            failures.insert(0, TestFailure(
+                test, 'timed out after %g seconds' % self.timeout))
+        elif exit_code != expected_exit:
             failures.append(TestFailure(test,
                                         'got exit code %s, expected %s' %
                                         (exit_code, expected_exit)))
@@ -619,7 +680,11 @@ class CommandTester:
         return failures + teardown_failures
 
     def run_command(self, test, stdout_name, stderr_name):
-        '''Run the script of a test and return its exit code.'''
+        '''Run the script of a test and return its exit code.
+
+        Return None if the script timed out.
+
+        '''
         with contextlib.ExitStack() as stack:
             stdout = stack.enter_context(open(stdout_name, 'wb'))
             stderr = stack.enter_context(open(stderr_name, 'wb'))
@@ -627,13 +692,11 @@ class CommandTester:
                 stdin = stack.enter_context(open(test.stdin, 'rb'))
             else:
                 stdin = subprocess.DEVNULL
-            result = subprocess.run([test.script],
-                                    env=self.add_to_env(test),
-                                    stdin=stdin,
-                                    stdout=stdout,
-                                    stderr=stderr,
-                                    check=False)
-            return result.returncode
+            try:
+                return self.run_process(test.script, test, stdin=stdin,
+                                        stdout=stdout, stderr=stderr)
+            except ScriptTimeout:
+                return None
 
     def diff(self, expected_name, actual_name, diff_name):
         '''Write a diff of two files to a file and return it.

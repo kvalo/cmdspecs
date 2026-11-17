@@ -6,6 +6,11 @@ This file summarizes changes between releases of cmdspecs.
 Version 0.33+git, not yet released
 ----------------------------------
 
+* The new `-o`/`--timeout` option kills a test, or a setup or
+  teardown script, which runs longer than the given number of
+  seconds, and reports it as failed. Before, a hung test hung the
+  whole run.
+
 * The output of setup and teardown scripts is now captured and shown
   only when the script fails, as part of the failure. Before, it was
   written in the middle of the progress line. The new `-s`/

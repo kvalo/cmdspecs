@@ -13,6 +13,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -561,3 +562,69 @@ def test_no_capture_option_passes_hook_output_through(tmp_path):
     result = run_cmdspecs('-s', 'hooks', cwd=tmp_path)
     assert result.returncode == EXIT_OK, result.stdout + result.stderr
     assert 'noisy-out' in result.stdout
+
+
+def test_timeout_kills_hung_test_and_keeps_output(tmp_path):
+    # A test which runs too long fails with a message, its children
+    # are killed and the output so far is kept.
+    write_script(tmp_path / 'foo.script',
+                 'echo started\nsleep 60 &\necho $! > "$SRCDIR/pid"\n'
+                 'wait\n')
+    result = run_cmdspecs('--timeout=0.5', tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    assert 'FAILED foo - timed out after 0.5 seconds\n' in result.stdout
+    assert '\nstdout diff:\n' in result.stdout
+    assert (tmp_path / 'foo.stdout-actual').read_text() == 'started\n'
+    pid = int((tmp_path / 'pid').read_text())
+    with pytest.raises(ProcessLookupError):
+        for _ in range(50):
+            os.kill(pid, 0)
+            time.sleep(0.1)
+
+
+@pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
+                                  'teardown'])
+def test_timeout_applies_to_hooks(tmp_path, hook):
+    write_script(tmp_path / hook, 'echo noisy-out\nsleep 60\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs('-o', '0.5', tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    assert '%s: timed out after 0.5 seconds\nnoisy-out\n' % \
+        (tmp_path / hook) in result.stdout
+
+
+def test_timeout_applies_to_setup_once(tmp_path):
+    write_script(tmp_path / 'setup_once', 'sleep 60\n')
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs('-o', '0.5', tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    assert result.stderr == 'cmdspecs: %s: timed out after 0.5 seconds\n' \
+        % (tmp_path / 'setup_once')
+
+
+def test_timeout_does_not_affect_fast_tests(tmp_path):
+    spec = copy_spec('echo', tmp_path)
+    result = run_cmdspecs('-o', '30', spec, cwd=tmp_path)
+    assert result.returncode == EXIT_OK, result.stdout + result.stderr
+    assert 'timeout: 30 seconds' in result.stdout
+
+
+@pytest.mark.parametrize('value', ['0', '-1'])
+def test_timeout_must_be_positive(tmp_path, value):
+    result = run_cmdspecs('--timeout=' + value, tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_USAGE, result.stdout + result.stderr
+    assert 'must be greater than 0' in result.stderr
+
+
+def test_interrupt_kills_children_of_script(tmp_path):
+    write_script(tmp_path / 'foo.script',
+                 'sleep 60 &\necho $! > "$SRCDIR/pid"\n'
+                 'kill -INT $PPID\nwait\n')
+    result = run_cmdspecs(tmp_path, cwd=tmp_path)
+    assert result.returncode == EXIT_INTERRUPTED, \
+        result.stdout + result.stderr
+    pid = int((tmp_path / 'pid').read_text())
+    with pytest.raises(ProcessLookupError):
+        for _ in range(50):
+            os.kill(pid, 0)
+            time.sleep(0.1)

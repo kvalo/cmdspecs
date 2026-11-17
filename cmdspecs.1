@@ -12,6 +12,8 @@ cmdspecs \- blackbox testing of Unix command line tools
 .RB [ \-t
 .IR TEST ]...\&
 .RB [ \-T ]
+.RB [ \-o
+.IR SECONDS ]
 .RB [ \-k ]
 .RB [ \-s ]
 .RB [ \-v ]
@@ -224,6 +226,21 @@ Can be given many times.
 Report how long the whole run and each test took,
 and each script of a test,
 after the test summary.
+.TP
+.BR \-o ", " \-\-timeout =\fISECONDS\fR
+Kill a test, or a setup or teardown script, which runs longer than
+.I SECONDS
+(which can be fractional).
+A test which timed out is reported as failed, and the output it wrote
+before that is kept in the
+.I \-actual
+files.
+A script which timed out fails like one that exited with an error.
+The script and its child processes are sent
+.B SIGTERM
+and, if they are still running after two seconds,
+.BR SIGKILL .
+By default there is no limit.
 .TP
 .BR \-k ", " \-\-keep
 Keep the temporary directory on failure.
