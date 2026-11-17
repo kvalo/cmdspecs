@@ -13,6 +13,7 @@ cmdspecs \- blackbox testing of Unix command line tools
 .IR TEST ]...\&
 .RB [ \-T ]
 .RB [ \-k ]
+.RB [ \-s ]
 .RB [ \-v ]
 .RB [ \-C
 .IR WHEN ]
@@ -150,6 +151,9 @@ Execute
 .SS Failure handling
 A test fails if its output does not match, and also when one of its
 setup or teardown scripts fails.
+The output of a failed setup or teardown script is shown with the
+failure; see
+.BR \-s .
 In detail:
 .TP
 .I setup_once
@@ -239,6 +243,14 @@ The value of
 is the
 .I data
 directory in it.
+.TP
+.BR \-s ", " \-\-no\-capture
+Do not capture the output of the setup and teardown scripts.
+By default their output is captured and shown only when the script
+fails, as part of the failure.
+With this option it goes straight to the output of
+.BR cmdspecs ,
+which can disturb the progress display.
 .TP
 .BR \-v ", " \-\-verbose
 Show the name and result of each test on a line of its own,

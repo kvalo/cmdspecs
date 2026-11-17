@@ -5,49 +5,6 @@ looked at but deliberately left alone, mostly because fixing them
 needs a design decision or changes the behaviour users may rely on.
 The function names refer to the `cmdspecs` script.
 
-## Output of setup and teardown scripts is not captured
-
-`CommandTester.run_script()` runs the `setup_once`, `setup`,
-`foo.setup`, `foo.teardown`, `teardown` and `teardown_once` scripts
-with `subprocess.check_call()` and does not redirect their output,
-so anything they print goes straight to the stdout and stderr of
-cmdspecs. Only the output of `foo.script` is captured.
-
-The output lands in the middle of the progress line, for example:
-
-    setup-once runs
-    tests/specs/echo hello.setup runs
-    .                                            [ 33%]
-
-`Reporter` does not know about the extra text, so `Reporter.line_len`
-is wrong and the `[ NN%]` column is misaligned or the line wraps at
-the wrong place. It also makes the output hard to parse, and the
-ordering of stdout and stderr is unpredictable when they are
-redirected to different places.
-
-On the other hand, when a script fails, its output is the only clue
-about what went wrong: the message of `ScriptError` is just
-`<script>: exited with N`. So the output must not simply be thrown
-away.
-
-Options:
-
-- Capture stdout and stderr of the scripts, and show them only when
-  the script fails, in the FAILURES section together with the exit
-  status. This is what pytest does with fixtures and is the cleanest
-  output. Scripts which print progress on purpose become silent.
-- As above, but also show the captured output with `-v`, or add an
-  option like pytest's `-s` to turn the capturing off.
-- Redirect the output to files in the temporary directory and
-  mention the file names on failure. Only useful with `--keep`.
-
-`setup_once` and `teardown_once` failures are not tied to any test,
-so they need a place in the report too; today they are printed to
-stderr after the summary. A script which starts a background daemon
-that keeps the pipe open would make cmdspecs wait forever if the
-output is read through a pipe, so capture to a temporary file rather
-than a pipe.
-
 ## No timeout for tests
 
 `CommandTester.run_command()` uses `subprocess.run()` and

@@ -141,11 +141,14 @@ class TestFailure(Exception):
 
 class ScriptError(Exception):
 
-    def __init__(self, script_name, msg):
+    def __init__(self, script_name, msg, output=''):
         self.msg = '%s: %s' % (script_name, msg)
+        self.output = output
 
     def __str__(self):
-        return self.msg
+        if not self.output:
+            return self.msg
+        return '%s\n%s' % (self.msg, self.output)
 
 
 BOLD = '1'
@@ -320,6 +323,9 @@ class CommandTester:
         parser.add_argument('-k', '--keep', action='store_true',
                             help='keep the temporary directory if a '
                                  'test or a script fails, or on interrupt')
+        parser.add_argument('-s', '--no-capture', action='store_true',
+                            help='do not capture the output of setup '
+                                 'and teardown scripts')
         parser.add_argument('-v', '--verbose', action='store_true',
                             help='show the name and result of each test')
         parser.add_argument('-C', '--color', choices=['auto', 'yes', 'no'],
@@ -348,6 +354,7 @@ class CommandTester:
         self.test_timings = {}
         # Failures of setup_once and teardown_once scripts.
         self.errors = []
+        self.capture = not args.no_capture
         suite_started = time.monotonic()
 
         try:
@@ -503,15 +510,32 @@ class CommandTester:
         if not script_name:
             return
         started = time.monotonic()
-        try:
-            subprocess.check_call([script_name],
-                                  env=self.add_to_env(test),
-                                  stdin=subprocess.DEVNULL)
-        except subprocess.CalledProcessError as e:
-            raise ScriptError(script_name,
-                              'exited with %d' % e.returncode)
-        except OSError as e:
-            raise ScriptError(script_name, e.strerror)
+        # Capture to a file rather than a pipe, as a daemon started by
+        # the script may keep a pipe open and make us wait for it.
+        with contextlib.ExitStack() as stack:
+            if self.capture:
+                output = stack.enter_context(
+                    tempfile.TemporaryFile(dir=self.tempdir))
+            else:
+                output = None
+            try:
+                result = subprocess.run([script_name],
+                                        env=self.add_to_env(test),
+                                        stdin=subprocess.DEVNULL,
+                                        stdout=output,
+                                        stderr=subprocess.STDOUT
+                                        if output else None,
+                                        check=False)
+            except OSError as e:
+                raise ScriptError(script_name, e.strerror)
+            if result.returncode:
+                text = ''
+                if output:
+                    output.seek(0)
+                    text = output.read().decode('utf-8', 'backslashreplace')
+                raise ScriptError(script_name,
+                                  'exited with %d' % result.returncode,
+                                  text)
         key = test.path_prefix if test else ALL_TESTS
         self.timings.setdefault(key, []).append(
             (time.monotonic() - started, script_name))

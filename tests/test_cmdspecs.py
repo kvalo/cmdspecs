@@ -129,6 +129,8 @@ def make_script(tmp_path, name, body):
 def run_single_test(tmp_path):
     tester = cmdspecs.CommandTester()
     tester.datadir = str(tmp_path)
+    tester.tempdir = str(tmp_path)
+    tester.capture = True
     td = cmdspecs.TestDir()
     td.scan(str(tmp_path))
     return [str(e) for e in tester.run_test(td.tests[0])]

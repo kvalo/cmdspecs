@@ -522,3 +522,42 @@ def test_keep_option_keeps_work_area_on_interrupt(tmp_path):
         assert (workdir / 'data' / 'left-over').exists()
     finally:
         shutil.rmtree(workdir)
+
+
+def make_hook_dir(tmp_path, hook, body):
+    d = tmp_path / 'hooks'
+    d.mkdir()
+    write_script(d / hook, body)
+    write_script(d / 'foo.script', 'true\n')
+    return d
+
+
+def test_hook_output_is_captured_when_it_passes(tmp_path):
+    make_hook_dir(tmp_path, 'setup', 'echo noisy-out\necho noisy-err >&2\n')
+    result = run_cmdspecs('hooks', cwd=tmp_path)
+    assert result.returncode == EXIT_OK, result.stdout + result.stderr
+    assert 'noisy' not in result.stdout + result.stderr
+
+
+def test_failed_hook_output_is_shown_with_failure(tmp_path):
+    make_hook_dir(tmp_path, 'setup',
+                  'echo noisy-out\necho noisy-err >&2\nexit 3\n')
+    result = run_cmdspecs('hooks', cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED
+    assert 'exited with 3\nnoisy-out\nnoisy-err\n' in result.stdout
+    # The short summary has just the first line.
+    assert 'noisy-out' not in result.stdout.split('short test summary')[1]
+
+
+def test_failed_setup_once_output_is_reported(tmp_path):
+    make_hook_dir(tmp_path, 'setup_once', 'echo noisy-out\nexit 1\n')
+    result = run_cmdspecs('hooks', cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED
+    assert 'noisy-out' in result.stderr
+
+
+def test_no_capture_option_passes_hook_output_through(tmp_path):
+    make_hook_dir(tmp_path, 'setup', 'echo noisy-out\n')
+    result = run_cmdspecs('-s', 'hooks', cwd=tmp_path)
+    assert result.returncode == EXIT_OK, result.stdout + result.stderr
+    assert 'noisy-out' in result.stdout

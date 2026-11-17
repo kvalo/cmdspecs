@@ -6,6 +6,11 @@ This file summarizes changes between releases of cmdspecs.
 Version 0.33+git, not yet released
 ----------------------------------
 
+* The output of setup and teardown scripts is now captured and shown
+  only when the script fails, as part of the failure. Before, it was
+  written in the middle of the progress line. The new `-s`/
+  `--no-capture` option turns the capturing off.
+
 * The `-c`/`--command` option, which cmdspecs accepted and ignored
   for compatibility with cmdtest, is removed. Using it is now a usage
   error.
