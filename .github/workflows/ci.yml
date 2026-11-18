@@ -24,3 +24,16 @@ jobs:
         run: ./check
       - name: Run linters
         run: ./lint
+
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pytest
+        # Homebrew's Python is externally managed, so use a venv.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install .[test]
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - name: Run tests
+        run: ./check
