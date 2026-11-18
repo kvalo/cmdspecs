@@ -555,9 +555,12 @@ class CommandTester:
 
     def kill_group(self, proc):
         '''Kill the process group of proc and wait for proc to exit.'''
+        # macOS fails killpg with EPERM, not ESRCH, if the group has
+        # only zombies left.
+        gone = (ProcessLookupError, PermissionError)
         for sig, grace in [(signal.SIGTERM, KILL_GRACE),
                            (signal.SIGKILL, None)]:
-            with contextlib.suppress(ProcessLookupError):
+            with contextlib.suppress(*gone):
                 os.killpg(proc.pid, sig)
             try:
                 proc.wait(timeout=grace)
@@ -565,7 +568,7 @@ class CommandTester:
             except subprocess.TimeoutExpired:
                 pass
         # Also kill what the script left running after it exited.
-        with contextlib.suppress(ProcessLookupError):
+        with contextlib.suppress(*gone):
             os.killpg(proc.pid, signal.SIGKILL)
 
     def run_script(self, script_name, test=None):
