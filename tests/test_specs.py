@@ -36,7 +36,9 @@ EXIT_NO_TESTS = cmdspecs.EXIT_NO_TESTS
 
 
 def run_cmdspecs(*args, cwd):
+    # Wide enough that the long temp dirs of macOS don't wrap the dots.
     return subprocess.run([str(CMDSPECS), *map(str, args)], cwd=cwd,
+                          env={**os.environ, 'COLUMNS': '300'},
                           capture_output=True, text=True)
 
 
