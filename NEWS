@@ -32,6 +32,10 @@ Version 0.33+git, not yet released
   instead of looking like a failed test with 1, and an I/O error such
   as an unwritable temporary directory gives a short message and 1.
 
+* cmdspecs now works on macOS, and its tests run there in CI. Before,
+  an interrupt or a timeout was reported as a failure to run the
+  test.
+
 Version 0.33, released 2026-11-15
 ---------------------------------
 

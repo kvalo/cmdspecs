@@ -10,6 +10,8 @@ Given some test scripts, their inputs, and expected outputs,
 it verifies that the command line produces the expected output.
 If not, it reports problems, and shows the differences.
 
+`cmdspecs` runs on Linux and macOS.
+
 See the manual page for details on how to use the program.
 
 ## Installation
