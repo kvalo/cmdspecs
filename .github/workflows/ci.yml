@@ -1,0 +1,26 @@
+# Copyright 2026  Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flake8 python3-pytest shellcheck groff
+      - name: Run tests
+        run: ./check
+      - name: Run linters
+        run: ./lint
