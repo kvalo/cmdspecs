@@ -405,7 +405,7 @@ def test_reporter_start_shows_header():
     lines = output.getvalue().splitlines()
     assert lines[0] == '======= cmdspecs session starts ======='
     assert lines[1].startswith('platform ')
-    assert lines[1].endswith(', cmdspecs %s' % cmdspecs.VERSION)
+    assert lines[1].endswith(', cmdspecs %s' % cmdspecs.version_string())
     assert lines[2:] == ['collected 1 test', '']
 
 
@@ -573,6 +573,33 @@ def test_version_matches_pyproject():
     pyproject = Path(_path).with_name('pyproject.toml').read_text()
     match = re.search(r'^version = "(.*)"$', pyproject, re.MULTILINE)
     assert match.group(1) == cmdspecs.VERSION
+
+
+def test_version_string_release(monkeypatch):
+    # A release version is shown as is.
+    monkeypatch.setattr(cmdspecs, 'VERSION', '1.2')
+    assert cmdspecs.version_string() == '1.2'
+
+
+def test_version_string_git_build(monkeypatch, tmp_path):
+    # A git build gets a short hash of the script, which changes with
+    # the script's contents.
+    script = tmp_path / 'script'
+    monkeypatch.setattr(cmdspecs, '__file__', str(script))
+    monkeypatch.setattr(cmdspecs, 'VERSION', '1.2+git')
+    script.write_text('one')
+    first = cmdspecs.version_string()
+    assert re.fullmatch(r'1\.2\+git\.[0-9a-f]{8}', first)
+    assert cmdspecs.version_string() == first
+    script.write_text('two')
+    assert cmdspecs.version_string() != first
+
+
+def test_version_string_unreadable_script(monkeypatch, tmp_path):
+    # Without a readable script the hash is replaced by "nohash".
+    monkeypatch.setattr(cmdspecs, '__file__', str(tmp_path / 'missing'))
+    monkeypatch.setattr(cmdspecs, 'VERSION', '1.2+git')
+    assert cmdspecs.version_string() == '1.2+git.nohash'
 
 
 def test_version_matches_changelog():

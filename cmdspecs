@@ -9,6 +9,7 @@ import argparse
 import contextlib
 import datetime
 import difflib
+import hashlib
 import os
 import platform
 import shutil
@@ -21,6 +22,25 @@ import traceback
 
 
 VERSION = '0.33+git'
+
+
+def version_string():
+    '''Return VERSION, with a short hash of this script for git builds.
+
+    A git build has the same VERSION for many different revisions, so
+    the hash lets a bug report be matched to the exact script.
+
+    '''
+
+    if not VERSION.endswith('+git'):
+        return VERSION
+    try:
+        with open(__file__, 'rb') as f:
+            digest = hashlib.sha256(f.read()).hexdigest()[:8]
+    except OSError:
+        digest = 'nohash'
+    return '%s.%s' % (VERSION, digest)
+
 
 # The exit statuses follow those of pytest where that makes sense.
 EXIT_OK = 0
@@ -241,7 +261,8 @@ class Reporter:
         self.total = len(tests)
         self.sep('=', 'cmdspecs session starts', BOLD)
         self.write('platform %s -- Python %s, cmdspecs %s\n' %
-                   (sys.platform, platform.python_version(), VERSION))
+                   (sys.platform, platform.python_version(),
+                    version_string()))
         for name, value in settings:
             self.write('%s: %s\n' % (name, value))
         self.write('collected %d test%s\n' %
@@ -360,7 +381,7 @@ class CommandTester:
                             help='color the output; auto (the default) '
                                  'colors only on a terminal')
         parser.add_argument('-V', '--version', action='version',
-                            version='%(prog)s ' + VERSION)
+                            version='%(prog)s ' + version_string())
         parser.add_argument('dirnames', nargs='+',
                             help='directories containing the test cases')
         return parser

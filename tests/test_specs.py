@@ -820,7 +820,7 @@ def test_interrupt_kills_children_of_script(tmp_path):
 
 def test_version_option_prints_version(tmp_path):
     result = run_cmdspecs('-V', cwd=tmp_path)
-    assert_output(result, 'cmdspecs %s\n' % cmdspecs.VERSION)
+    assert_output(result, 'cmdspecs %s\n' % cmdspecs.version_string())
 
 
 def test_help_option_prints_usage(tmp_path):
