@@ -41,6 +41,28 @@ are split into many directories, and it changes `DATADIR` from one
 for the run to one for each directory, which is visible to the
 scripts which share data between directories.
 
+## Measure the code coverage of the tests
+
+Measure how much of the `cmdspecs` script the pytest suite runs, to
+find code which no test covers. This is about the tests of this
+project, not about a coverage feature in cmdspecs itself.
+
+The obvious tool is `pytest-cov`, which uses `coverage.py`. It would
+be added to the `test` extra in `pyproject.toml` and the run would be
+something like `./check --cov`. Points to look at:
+
+- `cmdspecs` has no `.py` extension, and `tests/test_cmdspecs.py`
+  loads it with `importlib`, so the source for `--cov` has to be given
+  as a path or the file has to be listed in the `coverage.py` config.
+  Whether the report works for such a file is not verified.
+- `tests/test_specs.py` runs the script as a subprocess, so the
+  coverage of those runs is lost unless `coverage.py` is set up to
+  measure subprocesses too. Without that, only the unit tests count
+  and the report understates the coverage.
+- Decide whether to add a minimum coverage that fails the run, and
+  whether CI should run it, or whether the report is only for
+  reading.
+
 ## Support Windows
 
 cmdspecs has not been tried on Windows. Reading the code shows what
