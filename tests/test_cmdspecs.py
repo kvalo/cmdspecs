@@ -189,8 +189,12 @@ def test_run_test_reports_stderr_diff(tmp_path):
     make_script(tmp_path, 'foo', 'echo oops 1>&2\n')
     errors = run_single_test(tmp_path)
     assert len(errors) == 1
-    assert errors[0].startswith('stderr diff:\n')
-    assert '+oops' in errors[0]
+    lines = errors[0].splitlines()
+    assert lines[0] == 'stderr diff:'
+    assert lines[1].startswith('--- /dev/null\t')
+    assert lines[2].startswith('+++ ') and \
+        lines[2].split('\t')[0].endswith('foo.stderr-actual')
+    assert lines[3:] == ['@@ -0,0 +1 @@', '+oops']
 
 
 def test_run_test_removes_output_files_on_success(tmp_path):
@@ -486,14 +490,60 @@ def test_reporter_counts_errors():
     assert output.getvalue() == '========== 2 errors in 0.50s ==========\n'
     tests, output, reporter = make_reporter([('a', 'd/a')])
     run_reporter(tests, reporter, errors=1)
-    assert '1 passed, 1 error in 0.50s' in output.getvalue()
+    assert output.getvalue() == (
+        'd .                              [100%]\n'
+        '===== 1 passed, 1 error in 0.50s ======\n')
 
 
 def test_reporter_colors_output():
-    # With color enabled the output has ANSI color codes.
-    tests, output, reporter = make_reporter([('a', 'd/a')], color=True)
+    # With color enabled the dots, the failures and the summaries are
+    # colored: green for passing, red for failing, bold for the failure
+    # and summary lines, cyan for the short summary heading.
+    green, red, reset = '\x1b[32m', '\x1b[31m', '\x1b[0m'
+    tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')],
+                                            color=True)
+    run_reporter(tests, reporter, failing=['b'])
+    assert output.getvalue() == (
+        'd %s.%s%sF%s                             %s[100%%]%s\n'
+        '\n'
+        '============== FAILURES ===============\n'
+        '\x1b[31;1m__________________ b __________________%s\n'
+        'stdout diff:\n'
+        '+x\n'
+        '\x1b[36m======= short test summary info =======%s\n'
+        '%sFAILED%s b - stdout diff:\n'
+        '\x1b[31;1m===== 1 failed, 1 passed in 0.50s =====%s\n' % (
+            green, reset, red, reset, red, reset, reset, reset, red, reset,
+            reset))
+
+
+def test_reporter_colors_verbose_names():
+    green, red, reset = '\x1b[32m', '\x1b[31m', '\x1b[0m'
+    tests, output, reporter = make_reporter([('a', 'd/a'), ('b', 'd/b')],
+                                            color=True, verbose=True)
+    run_reporter(tests, reporter, failing=['b'])
+    assert output.getvalue().splitlines()[:2] == [
+        'd::a %sPASSED%s                      %s[ 50%%]%s' % (
+            green, reset, green, reset),
+        'd::b %sFAILED%s                      %s[100%%]%s' % (
+            red, reset, red, reset)]
+
+
+def test_reporter_colors_summaries_without_failures():
+    # The summary is green when everything passed, red when there are
+    # errors and bold yellow when no tests ran.
+    tests, output, reporter = make_reporter([], color=True)
     run_reporter(tests, reporter)
-    assert '\x1b[32m.\x1b[0m' in output.getvalue()
+    assert output.getvalue() == (
+        '\x1b[33;1m======== no tests ran in 0.50s ========\x1b[0m\n')
+    tests, output, reporter = make_reporter([], color=True)
+    run_reporter(tests, reporter, errors=2)
+    assert output.getvalue() == (
+        '\x1b[31;1m========== 2 errors in 0.50s ==========\x1b[0m\n')
+    tests, output, reporter = make_reporter([('a', 'd/a')], color=True)
+    run_reporter(tests, reporter, errors=1)
+    assert output.getvalue().splitlines()[-1] == (
+        '\x1b[31;1m===== 1 passed, 1 error in 0.50s ======\x1b[0m')
 
 
 def test_reporter_writes_no_colors_by_default():
@@ -511,7 +561,11 @@ def test_manpage_documents_all_options():
     parser = cmdspecs.CommandTester().make_parser()
     for action in parser._actions:
         for option in action.option_strings:
-            assert option.replace('-', '\\-') in options, option
+            # The option must not be just part of another one, such as
+            # -t of --test.
+            escaped = re.escape(option.replace('-', '\\-'))
+            assert re.search(r'(?<![\\\-\w])%s(?![\\\-\w])' % escaped,
+                             options), option
 
 
 def test_version_matches_pyproject():
@@ -529,7 +583,7 @@ def test_version_matches_changelog():
         heading = '## [Unreleased]\n'
     else:
         heading = '## [%s] - ' % cmdspecs.VERSION
-    assert heading in changelog
+    assert re.search('^%s' % re.escape(heading), changelog, re.MULTILINE)
 
 
 def test_manpage_documents_all_exit_statuses():
