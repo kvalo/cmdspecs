@@ -22,7 +22,9 @@ dependencies = []
 test = ["pytest"]
 
 [project.urls]
-"Original cmdtest" = "https://liw.fi/cmdtest/"
+Homepage = "https://github.com/kvalo/cmdspecs"
+Source = "https://github.com/kvalo/cmdspecs"
+Issues = "https://github.com/kvalo/cmdspecs/issues"
 
 # cmdspecs is a single script with no package, so ship it with
 # script-files and the manpage with data-files.

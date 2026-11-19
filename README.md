@@ -14,6 +14,9 @@ If not, it reports problems, and shows the differences.
 
 See the manual page for details on how to use the program.
 
+The project lives at <https://github.com/kvalo/cmdspecs>. Report
+bugs and send patches there.
+
 ## Installation
 
 ### From Source

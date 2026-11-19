@@ -331,7 +331,9 @@ class CommandTester:
                         'cmdspecs runs each script and compares its '
                         'output and exit status to the expected '
                         'files, showing differences on mismatch.',
-            epilog='See cmdspecs(1) for more information.',
+            epilog='See cmdspecs(1) for more information. '
+                   'Home page and bug reports: '
+                   'https://github.com/kvalo/cmdspecs',
             prog='cmdspecs'
         )
         parser.add_argument('-t', '--test', action='append',

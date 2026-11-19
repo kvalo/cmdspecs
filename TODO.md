@@ -41,23 +41,6 @@ are split into many directories, and it changes `DATADIR` from one
 for the run to one for each directory, which is visible to the
 scripts which share data between directories.
 
-## Project URL
-
-cmdspecs has no home page of its own yet. Once a URL for the project
-is chosen, add it to:
-
-- `pyproject.toml`, in `[project.urls]`, next to the existing
-  "Original cmdtest" link, as `Homepage` and also `Source` and
-  `Issues` if the host has them.
-- The manpage `cmdspecs.1`, for example in a short section at the
-  end, or in SEE ALSO, so users can find the project and where to
-  report bugs.
-- `README.md`, which does not mention where the project lives.
-- The `--help` text in `CommandTester.make_parser()`, which now only
-  points at cmdspecs(1).
-- The hosting service settings and the git remote, so that the
-  repository description and the URL agree.
-
 ## Support Windows
 
 cmdspecs has not been tried on Windows. Reading the code shows what
