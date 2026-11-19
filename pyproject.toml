@@ -20,6 +20,7 @@ dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest"]
+lint = ["flake8", "shellcheck-py"]
 
 [project.urls]
 Homepage = "https://github.com/kvalo/cmdspecs"
