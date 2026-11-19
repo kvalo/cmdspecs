@@ -20,13 +20,41 @@ working with code in this repository.
 - The version is in both `VERSION` in `cmdspecs` and `version` in
   `pyproject.toml`, and CHANGELOG.md has a heading for it. A release
   bump must update all three; unit tests check that they match.
-- Right after a release, set the version to `<release>+git` (a PEP
-  440 local version label), so git builds are not mistaken for the
-  release. CHANGELOG.md then has an `## [Unreleased]` heading
-  instead of one for the version. At the next release, replace the
-  `+git` version with the new one, rename `[Unreleased]` to
-  `[<version>] - YYYY-MM-DD` and add a fresh `[Unreleased]` above
-  it.
+- Between releases the version is `<release>+git` (a PEP 440 local
+  version label), so git builds are not mistaken for the release.
+  CHANGELOG.md then has an `## [Unreleased]` heading above the last
+  release.
+
+## Release process
+
+The user pushes to `main` and tags; Claude prepares the commits and
+reminds the user of each step. Version numbers look like `0.34.0` and
+tags like `v0.34.0`.
+
+1. Make the release commit, subject `cmdspecs vX.Y.Z`:
+   - Replace the `+git` version with `X.Y.Z` in `VERSION` in
+     `cmdspecs` and `version` in `pyproject.toml`.
+   - In CHANGELOG.md, rename `[Unreleased]` to
+     `[X.Y.Z] - YYYY-MM-DD`. Do not leave an empty `[Unreleased]`
+     heading in the release commit.
+   - Fix the link references at the bottom: remove `[Unreleased]` and
+     add `[X.Y.Z]: https://github.com/kvalo/cmdspecs/compare/vPREV...vX.Y.Z`.
+   - Run `./check` and `./lint`.
+2. Push the release commit to `staging` (ask first) and wait for CI
+   with `gh run watch`. If the commit changes after that, e.g. by
+   amending, the tag must point at the new hash.
+3. The user signs and tags the exact commit that passed CI, e.g.
+   `git tag -s vX.Y.Z <hash> -m "cmdspecs vX.Y.Z"`, and pushes the
+   commit and the tag to `main`. Never push to `main` or create the
+   tag; remind the user instead.
+4. The user creates a new release for the tag on github.com. Remind
+   the user; Claude does not create GitHub releases.
+5. Once `origin/main` and the tag are on the release commit, make the
+   post-release commit, subject `cmdspecs: mark version as
+   X.Y.Z+git`: set the version to `X.Y.Z+git` in both files, add
+   `## [Unreleased]` back above `[X.Y.Z]` in CHANGELOG.md and its
+   `[Unreleased]: .../compare/vX.Y.Z...HEAD` link reference. Run
+   `./check` and `./lint`, then push to `staging` (ask first).
 
 ## Testing
 
