@@ -67,7 +67,42 @@ cmdspecs sort-tests
 ```
 
 If the output matches, the test passes. If not, `cmdspecs` shows a
-diff of the expected and the actual output. Besides `.stdin` and
+diff of the expected and the actual output. Here is a run with six
+tests, one of which fails because its expected output is wrong (`-v`
+lists every test):
+
+```text
+$ cmdspecs -v sort-tests
+=========================== cmdspecs session starts ===========================
+platform linux -- Python 3.13.5, cmdspecs 0.33
+srcdir: /home/user/project
+datadir: /tmp/cmdspecs-tx45caju/data
+keep: no
+testdirs: sort-tests
+collected 6 tests
+
+sort-tests::empty-input PASSED                                           [ 16%]
+sort-tests::missing-file PASSED                                          [ 33%]
+sort-tests::numeric PASSED                                               [ 50%]
+sort-tests::reverse PASSED                                               [ 66%]
+sort-tests::sorts-fruit PASSED                                           [ 83%]
+sort-tests::unique FAILED                                                [100%]
+
+================================== FAILURES ===================================
+___________________________________ unique ____________________________________
+stdout diff:
+--- sort-tests/unique.stdout 2026-11-19 09:14:53.946186 +0200
++++ sort-tests/unique.stdout-actual 2026-11-19 09:14:59.886134 +0200
+@@ -1,3 +1,2 @@
+ a
+ b
+-b
+=========================== short test summary info ===========================
+FAILED unique - stdout diff:
+========================= 1 failed, 5 passed in 0.01s =========================
+```
+
+Besides `.stdin` and
 `.stdout`, a test can check `.stderr` and the exit status (`.exit`),
 and have `.setup` and `.teardown` scripts. The manual page
 (`man -l cmdspecs.1`) describes all of them, plus the options for
