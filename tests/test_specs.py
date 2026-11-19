@@ -816,3 +816,119 @@ def test_interrupt_kills_children_of_script(tmp_path):
         for _ in range(50):
             os.kill(pid, 0)
             time.sleep(0.1)
+
+
+def test_version_option_prints_version(tmp_path):
+    result = run_cmdspecs('-V', cwd=tmp_path)
+    assert_output(result, 'cmdspecs %s\n' % cmdspecs.VERSION)
+
+
+def test_help_option_prints_usage(tmp_path):
+    result = run_cmdspecs('--help', cwd=tmp_path)
+    assert result.returncode == EXIT_OK
+    assert result.stderr == ''
+    assert result.stdout.startswith(USAGE + '\n')
+
+
+def test_missing_dirnames_is_a_usage_error(tmp_path):
+    result = run_cmdspecs(cwd=tmp_path)
+    assert_output(result, stderr=USAGE + 'cmdspecs: error: the following '
+                  'arguments are required: dirnames\n',
+                  returncode=EXIT_USAGE)
+
+
+def test_color_no_disables_color(tmp_path):
+    copy_spec('echo', tmp_path)
+    result = run_cmdspecs('--color=no', 'echo', cwd=tmp_path)
+    assert_output(result, session(
+        'echo', '1 test', 'echo . [100%]\n', '1 passed in 0.00s'))
+
+
+@pytest.mark.parametrize('option', [[], ['-v']])
+def test_failures_of_stderr_and_exit_code_are_reported(tmp_path, option):
+    # A test can fail several ways at once and all are shown, in a
+    # single failure, while the short summary has just the first line.
+    write_script(tmp_path / 'foo.script', 'echo oops >&2\nexit 3\n')
+    result = run_cmdspecs(*option, '.', cwd=tmp_path)
+    dots = '.::foo FAILED [100%]\n\n' if option else '. F [100%]\n\n'
+    assert_output(result, session(
+        '.', '1 test', dots + failures(
+            ('foo', 'stderr diff:\n'
+                    '--- /dev/null\tTIMESTAMP\n'
+                    '+++ ./foo.stderr-actual\tTIMESTAMP\n'
+                    '@@ -0,0 +1 @@\n'
+                    '+oops\n'
+                    'got exit code 3, expected 0\n')),
+        '1 failed in 0.00s'), returncode=EXIT_FAILED)
+
+
+def test_several_failed_tests_are_all_reported(tmp_path):
+    write_script(tmp_path / 'foo.script', 'exit 1\n')
+    write_script(tmp_path / 'bar.script', 'exit 2\n')
+    write_script(tmp_path / 'ok.script', '')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '3 tests', '. FF. [100%]\n\n' + failures(
+            ('bar', 'got exit code 2, expected 0\n'),
+            ('foo', 'got exit code 1, expected 0\n')),
+        '2 failed, 1 passed in 0.00s'), returncode=EXIT_FAILED)
+
+
+def test_empty_exit_file_expects_zero(tmp_path):
+    write_script(tmp_path / 'foo.script', '')
+    (tmp_path / 'foo.exit').write_text('')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '1 test', '. . [100%]\n', '1 passed in 0.00s'))
+
+
+def test_timeout_kills_script_which_ignores_sigterm(tmp_path):
+    write_script(tmp_path / 'foo.script',
+                 'trap "" TERM\necho started\nwhile :; do sleep 1; done\n')
+    result = run_cmdspecs('-o', '0.5', '.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '1 test', '. F [100%]\n\n' + failures(
+            ('foo', 'timed out after 0.5 seconds\n'
+                    'stdout diff:\n'
+                    '--- /dev/null\tTIMESTAMP\n'
+                    '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+                    '@@ -0,0 +1 @@\n'
+                    '+started\n')),
+        '1 failed in 0.00s', timeout='0.5'), returncode=EXIT_FAILED)
+
+
+@pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
+                                  'teardown'])
+def test_non_executable_hook_fails_the_test(tmp_path, hook):
+    write_script(tmp_path / hook, '')
+    (tmp_path / hook).chmod(0o644)
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '1 test', '. F [100%]\n\n' + failures(
+            ('foo', './%s: Permission denied\n' % hook)),
+        '1 failed in 0.00s'), returncode=EXIT_FAILED)
+
+
+@pytest.mark.parametrize('hook', ['setup_once', 'teardown_once'])
+def test_non_executable_once_hook_is_an_error(tmp_path, hook):
+    write_script(tmp_path / hook, '')
+    (tmp_path / hook).chmod(0o644)
+    write_script(tmp_path / 'foo.script', '')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED
+    assert result.stderr == 'cmdspecs: ./%s: Permission denied\n' % hook
+
+
+def test_failing_setup_once_skips_later_dirs(tmp_path):
+    for name in ['one', 'two']:
+        (tmp_path / name).mkdir()
+        write_script(tmp_path / name / 'foo.script', '')
+        write_script(tmp_path / name / 'teardown_once',
+                     'touch "%s/%s-teardown_once"\n' % (tmp_path, name))
+    write_script(tmp_path / 'one' / 'setup_once', 'exit 1\n')
+    result = run_cmdspecs('one', 'two', cwd=tmp_path)
+    assert_output(result, session('one, two', '2 tests', '',
+                                  '1 error in 0.00s'),
+                  'cmdspecs: one/setup_once: exited with 1\n', EXIT_FAILED)
+    assert not (tmp_path / 'two-teardown_once').exists()
