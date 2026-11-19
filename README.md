@@ -1,25 +1,84 @@
-# README for cmdspecs
+# cmdspecs
 
-This project provides `cmdspecs`, a black box testing tool for Unix
-command line tools.
+`cmdspecs` tests command line programs by running small shell scripts
+and comparing their output to files you wrote beforehand. It works
+with any program you can run from a shell, whatever language it is
+written in.
 
-## cmdspecs
+The testing is black box: `cmdspecs` knows nothing about how the
+program is built, only what it does. It feeds the program input, then
+checks what comes out: standard output, standard error and the exit
+status. This is how users see the program, so the tests keep working
+when you refactor or rewrite the internals.
 
-`cmdspecs` black box tests Unix command line tools.
-Given some test scripts, their inputs, and expected outputs,
-it verifies that the command line produces the expected output.
-If not, it reports problems, and shows the differences.
+Benefits:
 
-`cmdspecs` runs on Linux and macOS.
+- Writing a test is quick: a short script and a file with the
+  expected output, and no test framework or code to learn.
+- Any change in the output is easy to notice, because `cmdspecs`
+  shows a diff of the expected and the actual output.
+- The tests double as examples of how the program is used.
+- The same tests work for any language, and for a rewrite of the
+  program in another one.
 
-See the manual page for details on how to use the program.
+## Example
 
-The project lives at <https://github.com/kvalo/cmdspecs>. Report
-bugs and send patches there.
+A test case is a script plus files that describe what it should
+produce. Say you want to test `sort`. Make a directory with these
+files:
+
+```text
+sort-tests/
+    sorts-fruit.script
+    sorts-fruit.stdin
+    sorts-fruit.stdout
+```
+
+`sorts-fruit.script` is the command to run:
+
+```sh
+#!/bin/sh
+sort
+```
+
+Make the script executable with `chmod +x sorts-fruit.script`.
+
+`sorts-fruit.stdin` is fed to the script as input. Here it is three
+fruits in the wrong order:
+
+```text
+pear
+apple
+banana
+```
+
+`sorts-fruit.stdout` is the output you expect, the same lines sorted:
+
+```text
+apple
+banana
+pear
+```
+
+Then run:
+
+```sh
+cmdspecs sort-tests
+```
+
+If the output matches, the test passes. If not, `cmdspecs` shows a
+diff of the expected and the actual output. Besides `.stdin` and
+`.stdout`, a test can check `.stderr` and the exit status (`.exit`),
+and have `.setup` and `.teardown` scripts. The manual page
+(`man -l cmdspecs.1`) describes all of them, plus the options for
+running selected tests, timeouts and colored output.
+
+## Requirements
+
+`cmdspecs` runs on Linux and macOS. It needs Python 3.10 or later and
+nothing beyond the standard library.
 
 ## Installation
-
-### From Source
 
 Install from the source directory:
 
@@ -27,58 +86,26 @@ Install from the source directory:
 pip install .
 ```
 
-For development (editable install):
+Add `--user` to install only for the current user.
 
-```bash
-pip install -e .
-```
-
-### Per-user Installation
-
-To install only for the current user:
-
-```bash
-pip install --user .
-```
-
-### Copying the Script
-
-`cmdspecs` is a single Python 3 script with no dependencies beyond
-the standard library, so you can also install it by copying it to a
+Since `cmdspecs` is a single script, you can instead copy it to a
 directory in your `PATH`:
 
 ```bash
 install -m 755 cmdspecs ~/.local/bin/
 ```
 
-This does not install the manual page; read it with
-`man -l cmdspecs.1` or copy it to a `man1` directory in your
-`MANPATH`.
+## Project
 
-## Manual page
+The project lives at <https://github.com/kvalo/cmdspecs>. Report
+bugs and send patches there.
 
-The manual page source is `cmdspecs.1`, which `pip install` installs
-under `share/man/man1`. To read it from the source tree without
-installing:
+## License
 
-```bash
-man -l cmdspecs.1
-```
+Copyright 2011-2017 Lars Wirzenius
 
-## Legalese
-
-Copyright 2011-2017 Lars Wirzenius\
 Copyright 2025-2026 Kalle Valo
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+`cmdspecs` is free software, licensed under the GNU General Public
+License, version 3 or (at your option) any later version. See the
+file `COPYING` for the full text.
