@@ -18,13 +18,15 @@ working with code in this repository.
   add PyPI-only metadata (classifiers, keywords) or
   `pip install cmdspecs` instructions.
 - The version is in both `VERSION` in `cmdspecs` and `version` in
-  `pyproject.toml`, and NEWS has a heading for it. A release bump
-  must update all three; unit tests check that they match.
+  `pyproject.toml`, and CHANGELOG.md has a heading for it. A release
+  bump must update all three; unit tests check that they match.
 - Right after a release, set the version to `<release>+git` (a PEP
-  440 local version label) with the NEWS heading
-  `Version <release>+git, not yet released`, so git builds are not
-  mistaken for the release. At the next release, replace these with
-  the new version and `released YYYY-MM-DD`.
+  440 local version label), so git builds are not mistaken for the
+  release. CHANGELOG.md then has an `## [Unreleased]` heading
+  instead of one for the version. At the next release, replace the
+  `+git` version with the new one, rename `[Unreleased]` to
+  `[<version>] - YYYY-MM-DD` and add a fresh `[Unreleased]` above
+  it.
 
 ## Testing
 
@@ -58,10 +60,12 @@ working with code in this repository.
 
 ## Documentation
 
-- NEWS is only for major user visible changes. Don't add entries
-  for small tweaks, internal changes or test changes.
-- Wrap all documentation files (README, NEWS, CLAUDE.md, Markdown,
-  etc.) at 72 columns. Code spans and commands that can't be broken
+- CHANGELOG.md follows [Keep a Changelog](https://keepachangelog.com)
+  and is only for major user visible changes. Don't add entries for
+  small tweaks, internal changes or test changes. Group entries under
+  Added, Changed, Deprecated, Removed, Fixed and Security.
+- Wrap all documentation files (README, CHANGELOG.md, CLAUDE.md,
+  Markdown, etc.) at 72 columns. Code spans and commands that can't be broken
   may exceed it.
 
 ## Commits

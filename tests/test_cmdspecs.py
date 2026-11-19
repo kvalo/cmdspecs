@@ -521,10 +521,15 @@ def test_version_matches_pyproject():
     assert match.group(1) == cmdspecs.VERSION
 
 
-def test_version_matches_news():
-    # NEWS has a heading for the current version.
-    news = Path(_path).with_name('NEWS').read_text()
-    assert 'Version %s,' % cmdspecs.VERSION in news
+def test_version_matches_changelog():
+    # CHANGELOG.md has a heading for the current version, or for
+    # Unreleased if the version is a git build.
+    changelog = Path(_path).with_name('CHANGELOG.md').read_text()
+    if cmdspecs.VERSION.endswith('+git'):
+        heading = '## [Unreleased]\n'
+    else:
+        heading = '## [%s] - ' % cmdspecs.VERSION
+    assert heading in changelog
 
 
 def test_manpage_documents_all_exit_statuses():
