@@ -130,6 +130,40 @@ directory in your `PATH`:
 install -m 755 cmdspecs ~/.local/bin/
 ```
 
+## Development
+
+`cmdspecs` has its own tests, which need [pytest](https://pytest.org).
+Install it with:
+
+```bash
+pip install .[test]
+```
+
+Then run the tests with:
+
+```bash
+./check
+```
+
+`./check` runs the unit tests and runs `cmdspecs` itself on the
+example specs in `tests/specs`. It passes its arguments on to pytest,
+so `./check -x` stops at the first failure and `./check -k echo` runs
+only the tests with `echo` in their name.
+
+`./lint` checks the code and the documentation:
+
+```bash
+./lint
+```
+
+To run it, install these tools first. They are only needed for
+`./lint`, not for `./check` or for using `cmdspecs`:
+
+- `flake8` for the Python code
+- `shellcheck` for the shell scripts
+- `mdl` (markdownlint) for the Markdown files
+- `groff` for checking the manual page for warnings
+
 ## Project
 
 The project lives at <https://github.com/kvalo/cmdspecs>. Report
