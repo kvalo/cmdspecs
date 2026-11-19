@@ -443,7 +443,7 @@ class CommandTester:
             self.report_timings(elapsed)
 
         for error in self.errors:
-            sys.stderr.write('cmdspecs: %s\n' % error)
+            sys.stderr.write('cmdspecs: %s\n' % str(error).rstrip('\n'))
 
         if run_failed:
             sys.exit(EXIT_FAILED)

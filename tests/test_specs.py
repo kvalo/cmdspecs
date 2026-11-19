@@ -728,7 +728,7 @@ def test_failed_setup_once_output_is_reported(tmp_path):
     make_hook_dir(tmp_path, 'setup_once', 'echo noisy-out\nexit 1\n')
     result = run_cmdspecs('hooks', cwd=tmp_path)
     assert_output(result, session('hooks', '1 test', '', '1 error in 0.00s'),
-                  'cmdspecs: hooks/setup_once: exited with 1\nnoisy-out\n\n',
+                  'cmdspecs: hooks/setup_once: exited with 1\nnoisy-out\n',
                   EXIT_FAILED)
 
 
