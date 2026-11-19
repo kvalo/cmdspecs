@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cmdspecs"
-version = "0.33+git"
+version = "0.34.0"
 description = "black box testing of Unix command line tools"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "GPL-3.0-or-later"
