@@ -163,6 +163,8 @@ To run it, install these tools first. They are only needed for
 - `shellcheck` for the shell scripts
 - `mdl` (markdownlint) for the Markdown files
 - `groff` for checking the manual page for warnings
+- `yamllint` for the GitHub workflow files (optional, skipped if
+  missing)
 
 GitHub Actions runs both `./check` and `./lint` for every push.
 

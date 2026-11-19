@@ -39,12 +39,13 @@ working with code in this repository.
   stays clean. `tests/specs/fail` is *expected* to fail, and the test
   asserts that cmdspecs reports it.
 - `./lint` runs flake8 (config in `.flake8`), shellcheck, mdl
-  (markdownlint, config in `.mdlrc`) on the Markdown files, and groff
-  to check the manpage for warnings. It is separate from `./check`
-  because those tools are optional. When you add a new script, add it
-  to the file list in `./lint`, because `cmdspecs` and the test
-  scripts have no file extensions to glob on. The same goes for a
-  new Markdown file.
+  (markdownlint, config in `.mdlrc`) on the Markdown files, groff
+  to check the manpage for warnings, and yamllint (config in
+  `.yamllint`) on the GitHub workflows if it is installed. It is
+  separate from `./check` because those tools are optional. When you
+  add a new script, add it to the file list in `./lint`, because
+  `cmdspecs` and the test scripts have no file extensions to glob on.
+  The same goes for a new Markdown file.
 - `tests/test_cmdspecs.py` loads the `cmdspecs` script with
   `importlib` because it has no `.py` extension.
 - `test_manpage_documents_all_options` fails if an option from
