@@ -1,9 +1,9 @@
 # cmdspecs
 
-`cmdspecs` tests command line programs by running small shell scripts
-and comparing their output to files you wrote beforehand. It works
-with any program you can run from a shell, whatever language it is
-written in.
+`cmdspecs` tests command line programs by running small (or big, if
+you prefer) shell scripts and comparing their output to files you
+wrote beforehand. It works with any program you can run from a shell,
+whatever language it is written in.
 
 The testing is black box: `cmdspecs` knows nothing about how the
 program is built, only what it does. It feeds the program input, then
@@ -163,6 +163,8 @@ To run it, install these tools first. They are only needed for
 - `shellcheck` for the shell scripts
 - `mdl` (markdownlint) for the Markdown files
 - `groff` for checking the manual page for warnings
+
+GitHub Actions runs both `./check` and `./lint` for every push.
 
 ## Project
 
