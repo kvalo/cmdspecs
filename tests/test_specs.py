@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -36,11 +37,41 @@ EXIT_USAGE = cmdspecs.EXIT_USAGE
 EXIT_NO_TESTS = cmdspecs.EXIT_NO_TESTS
 
 
+# MSYS runs a script whether it has the execute permission or not.
+needs_exec_bit = pytest.mark.skipif(
+    sys.platform == 'win32',
+    reason='MSYS runs scripts without the execute permission')
+# On Windows a script can't interrupt cmdspecs with kill -INT $PPID.
+needs_sigint = pytest.mark.skipif(
+    sys.platform == 'win32',
+    reason='a script cannot send SIGINT to cmdspecs on Windows')
+
+
 def run_cmdspecs(*args, cwd):
-    # Wide enough that the long temp dirs of macOS don't wrap the dots.
-    return subprocess.run([str(CMDSPECS), *map(str, args)], cwd=cwd,
-                          env={**os.environ, 'COLUMNS': '300'},
+    # Windows ignores the #! line, so run cmdspecs with the Python of
+    # the tests. Wide enough that the long temp dirs of macOS don't wrap
+    # the dots.
+    return subprocess.run([sys.executable, str(CMDSPECS), *map(str, args)],
+                          cwd=cwd, env={**os.environ, 'COLUMNS': '300'},
                           capture_output=True, text=True)
+
+
+def native(path):
+    # cmdspecs joins a dir from its command line and a file name with the
+    # separator of the platform, which is \ on Windows.
+    return path.replace('/', os.sep)
+
+
+def assert_process_ends(pid):
+    # A process which a script left running ends within five seconds.
+    # Ask sh, as on Windows the pid is one of MSYS, and os.kill(pid, 0)
+    # sends a Ctrl-C there.
+    for _ in range(50):
+        if subprocess.run(['sh', '-c', 'kill -0 %d 2>/dev/null' % pid
+                           ]).returncode:
+            return
+        time.sleep(0.1)
+    pytest.fail('process %d is still running' % pid)
 
 
 def copy_spec(name, tmp_path):
@@ -118,7 +149,7 @@ FAIL_DIFF = (
     '___ fail ___\n'
     'stdout diff:\n'
     '--- /dev/null\tTIMESTAMP\n'
-    '+++ fail/fail.stdout-actual\tTIMESTAMP\n'
+    '+++ ' + native('fail/fail.stdout-actual') + '\tTIMESTAMP\n'
     '@@ -0,0 +1 @@\n'
     '+this is not empty output to make test fail\n'
     '=== short test summary info ===\n'
@@ -153,7 +184,8 @@ def test_failing_spec_reports_diff(tmp_path):
 
 
 def write_script(path, body):
-    path.write_text('#!/bin/sh\n' + body)
+    # newline='\n', as on Windows the output of a script has LF too.
+    path.write_text('#!/bin/sh\n' + body, newline='\n')
     path.chmod(0o755)
 
 
@@ -219,7 +251,7 @@ def test_dirs_share_datadir(tmp_path):
     write_script(tmp_path / 'one' / 'write.script',
                  'echo hello > "$DATADIR/file"\n')
     write_script(tmp_path / 'two' / 'read.script', 'cat "$DATADIR/file"\n')
-    (tmp_path / 'two' / 'read.stdout').write_text('hello\n')
+    (tmp_path / 'two' / 'read.stdout').write_text('hello\n', newline='\n')
     result = run_cmdspecs('one', 'two', cwd=tmp_path)
     assert_output(result, session(
         'one, two', '2 tests',
@@ -247,9 +279,11 @@ def test_timings_option_reports_timings(tmp_path):
         'echo', '1 test', 'echo . [100%]\n', '1 passed in 0.00s',
         trailer='Timings (in seconds):\n'
                 '  whole test suite: T s\n'
-                '     T echo/setup_once\n'
-                '  echo/hello: T s\n'
-                '     T echo/hello.setup\n'))
+                '     T %s\n'
+                '  %s: T s\n'
+                '     T %s\n' % (native('echo/setup_once'),
+                                 native('echo/hello'),
+                                 native('echo/hello.setup'))))
 
 
 def test_keep_option_keeps_work_area_on_failure(tmp_path):
@@ -279,7 +313,8 @@ def test_keep_option_keeps_work_area_on_failing_hook(tmp_path, hook):
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs('--keep', '.', cwd=tmp_path)
     assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
-    assert result.stderr == 'cmdspecs: ./%s: exited with 1\n' % hook
+    assert result.stderr == 'cmdspecs: %s: exited with 1\n' % \
+        native('./' + hook)
     prefix = 'Test work area: '
     lines = [x for x in result.stdout.splitlines() if x.startswith(prefix)]
     assert len(lines) == 1
@@ -295,7 +330,8 @@ def test_failing_hook_without_keep_removes_work_area(tmp_path):
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs('.', cwd=tmp_path)
     assert_output(result, session('.', '1 test', '', '1 error in 0.00s'),
-                  'cmdspecs: ./setup_once: exited with 1\n', EXIT_FAILED)
+                  'cmdspecs: %s: exited with 1\n' % native('./setup_once'),
+                  EXIT_FAILED)
 
 
 def test_success_leaves_no_output_files(tmp_path):
@@ -318,7 +354,7 @@ def test_counts_failed_tests_not_failures(tmp_path):
         '___ foo ___\n'
         'stdout diff:\n'
         '--- /dev/null\tTIMESTAMP\n'
-        '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+        '+++ ' + native('./foo.stdout-actual') + '\tTIMESTAMP\n'
         '@@ -0,0 +1 @@\n'
         '+unexpected\n'
         'got exit code 3, expected 0\n'
@@ -330,7 +366,7 @@ def test_counts_failed_tests_not_failures(tmp_path):
 def test_reports_missing_script(tmp_path):
     # A test with files but no .script is reported as failed, without a
     # traceback.
-    (tmp_path / 'foo.stdout').write_text('hello\n')
+    (tmp_path / 'foo.stdout').write_text('hello\n', newline='\n')
     result = run_cmdspecs('.', cwd=tmp_path)
     assert_output(result, session(
         '.', '1 test', '. F [100%]\n\n'
@@ -349,16 +385,10 @@ def test_reports_failing_setup(tmp_path):
     write_script(tmp_path / 'foo.script', '')
     write_script(tmp_path / 'bar.script', '')
     result = run_cmdspecs('.', cwd=tmp_path)
+    msg = native('./setup') + ': exited with 1\n'
     assert_output(result, session(
-        '.', '2 tests', '. FF [100%]\n\n'
-        '=== FAILURES ===\n'
-        '___ bar ___\n'
-        './setup: exited with 1\n'
-        '___ foo ___\n'
-        './setup: exited with 1\n'
-        '=== short test summary info ===\n'
-        'FAILED bar - ./setup: exited with 1\n'
-        'FAILED foo - ./setup: exited with 1\n',
+        '.', '2 tests', '. FF [100%]\n\n' + failures(
+            ('bar', msg), ('foo', msg)),
         '2 failed in 0.00s'), returncode=EXIT_FAILED)
 
 
@@ -369,7 +399,8 @@ def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
     write_script(tmp_path / 'foo.script', '')
     tmpdir = tmp_path / 'tmp'
     tmpdir.mkdir()
-    result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
+    result = subprocess.run([sys.executable, str(CMDSPECS), str(tmp_path)],
+                            cwd=tmp_path,
                             env={**os.environ, 'TMPDIR': str(tmpdir)},
                             capture_output=True, text=True)
     assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
@@ -378,6 +409,7 @@ def test_failing_setup_once_aborts_and_cleans_up(tmp_path):
     assert list(tmpdir.iterdir()) == []
 
 
+@needs_exec_bit
 def test_reports_non_executable_script(tmp_path):
     # A script without the execute permission is reported as failed with
     # the reason, not a crash.
@@ -405,7 +437,7 @@ def test_reports_non_utf8_output(tmp_path):
         '___ foo ___\n'
         'stdout diff:\n'
         '--- /dev/null\tTIMESTAMP\n'
-        '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+        '+++ ' + native('./foo.stdout-actual') + '\tTIMESTAMP\n'
         '@@ -0,0 +1 @@\n'
         '+\\xff\n'
         '=== short test summary info ===\n'
@@ -448,7 +480,8 @@ def test_header_shows_settings(tmp_path):
     lines = result.stdout.splitlines()
     assert 'srcdir: %s' % tmp_path in lines
     # The work area name says which program made it.
-    assert re.fullmatch(r'datadir: .*/cmdspecs-[^/]+/data', lines[3])
+    assert re.fullmatch(r'datadir: .*[/\\]cmdspecs-[^/\\]+[/\\]data',
+                        lines[3])
 
 
 def test_header_shows_keep_disabled(tmp_path):
@@ -521,10 +554,13 @@ def test_reports_unknown_test(tmp_path):
 @pytest.mark.parametrize('args', [(), ('-t', 'foo')])
 def test_reports_missing_dir(args, tmp_path):
     # A nonexistent dir, with or without -t, exits with 4 and a clear
-    # error, without a traceback.
+    # error, without a traceback. The reason is in the words of the
+    # platform.
+    with pytest.raises(OSError) as excinfo:
+        os.listdir(tmp_path / 'nosuch')
     result = run_cmdspecs(*args, 'nosuch', cwd=tmp_path)
-    assert_output(result, stderr=USAGE + 'cmdspecs: error: nosuch: '
-                  'No such file or directory\n', returncode=EXIT_USAGE)
+    assert_output(result, stderr=USAGE + 'cmdspecs: error: nosuch: %s\n' %
+                  excinfo.value.strerror, returncode=EXIT_USAGE)
 
 
 def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
@@ -532,9 +568,9 @@ def test_script_does_not_read_stdin_of_cmdspecs(tmp_path):
     # itself.
     write_script(tmp_path / 'setup', 'cat\n')
     write_script(tmp_path / 'foo.script', 'cat\n')
-    result = subprocess.run([str(CMDSPECS), '.'], cwd=tmp_path,
-                            input='surprise\n', capture_output=True,
-                            text=True)
+    result = subprocess.run([sys.executable, str(CMDSPECS), '.'],
+                            cwd=tmp_path, input='surprise\n',
+                            capture_output=True, text=True)
     assert_output(result, session(
         '.', '1 test', '. . [100%]\n', '1 passed in 0.00s'))
 
@@ -548,7 +584,7 @@ def test_runs_teardown_after_failing_test_setup(tmp_path):
     result = run_cmdspecs('.', cwd=tmp_path)
     assert_output(result, session(
         '.', '1 test', '. F [100%]\n\n' + failures(
-            ('foo', './foo.setup: exited with 1\n')),
+            ('foo', native('./foo.setup') + ': exited with 1\n')),
         '1 failed in 0.00s'), returncode=EXIT_FAILED)
     assert (tmp_path / 'teardown-ran').exists()
 
@@ -563,10 +599,10 @@ def test_failing_teardown_does_not_hide_diff(tmp_path):
         '.', '1 test', '. F [100%]\n\n' + failures(
             ('foo', 'stdout diff:\n'
                     '--- /dev/null\tTIMESTAMP\n'
-                    '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+                    '+++ ' + native('./foo.stdout-actual') + '\tTIMESTAMP\n'
                     '@@ -0,0 +1 @@\n'
-                    '+unexpected\n'
-                    './teardown: exited with 1\n')),
+                    '+unexpected\n' +
+                    native('./teardown') + ': exited with 1\n')),
         '1 failed in 0.00s'), returncode=EXIT_FAILED)
 
 
@@ -578,7 +614,8 @@ def test_failing_teardown_once_keeps_results(tmp_path):
     result = run_cmdspecs('.', cwd=tmp_path)
     assert_output(result, session(
         '.', '1 test', '. . [100%]\n', '1 passed, 1 error in 0.00s'),
-        'cmdspecs: ./teardown_once: exited with 2\n', EXIT_FAILED)
+        'cmdspecs: %s: exited with 2\n' % native('./teardown_once'),
+        EXIT_FAILED)
 
 
 def test_reports_invalid_exit_file(tmp_path):
@@ -592,8 +629,8 @@ def test_reports_invalid_exit_file(tmp_path):
     out = normalize(result.stdout)
     assert out.startswith(session(
         '.', '1 test', '. F [100%]\n\n', '').rsplit('===', 2)[0])
-    assert re.search(r"^FAILED foo - invalid \./foo\.exit: .*zero.*$", out,
-                     re.M)
+    assert re.search(r"^FAILED foo - invalid \.[/\\]foo\.exit: .*zero.*$",
+                     out, re.M)
 
 
 def test_removes_work_area_with_read_only_dirs(tmp_path):
@@ -606,7 +643,8 @@ def test_removes_work_area_with_read_only_dirs(tmp_path):
                  'chmod a-w "$DATADIR/a"\n')
     tmpdir = tmp_path / 'tmp'
     tmpdir.mkdir()
-    result = subprocess.run([str(CMDSPECS), str(tmp_path)], cwd=tmp_path,
+    result = subprocess.run([sys.executable, str(CMDSPECS), str(tmp_path)],
+                            cwd=tmp_path,
                             env={**os.environ, 'TMPDIR': str(tmpdir)},
                             capture_output=True, text=True)
     assert result.returncode == EXIT_OK, result.stdout + result.stderr
@@ -626,8 +664,8 @@ def test_timings_tell_tests_of_different_dirs_apart(tmp_path):
         '2 passed in 0.00s',
         trailer='Timings (in seconds):\n'
                 '  whole test suite: T s\n'
-                '  one/foo: T s\n'
-                '  two/foo: T s\n'))
+                '  %s: T s\n'
+                '  %s: T s\n' % (native('one/foo'), native('two/foo'))))
 
 
 def test_dir_without_tests_is_an_error(tmp_path):
@@ -669,6 +707,7 @@ def test_test_option_ignores_dirs_without_the_test(tmp_path):
         tests='hello'))
 
 
+@needs_sigint
 def test_interrupt_exits_with_interrupted_status(tmp_path):
     # Ctrl-C stops the run with a short message and no traceback.
     write_script(tmp_path / 'foo.script',
@@ -680,6 +719,7 @@ def test_interrupt_exits_with_interrupted_status(tmp_path):
         '\ncmdspecs: interrupted\n', EXIT_INTERRUPTED)
 
 
+@needs_sigint
 def test_keep_option_keeps_work_area_on_interrupt(tmp_path):
     # --keep also keeps the work area when cmdspecs is interrupted, and
     # tells where it is on stderr as there is no summary.
@@ -720,7 +760,8 @@ def test_failed_hook_output_is_shown_with_failure(tmp_path):
     # The short summary has just the first line.
     assert_output(result, session(
         'hooks', '1 test', 'hooks F [100%]\n\n' + failures(
-            ('foo', 'hooks/setup: exited with 3\nnoisy-out\nnoisy-err\n')),
+            ('foo', native('hooks/setup') +
+             ': exited with 3\nnoisy-out\nnoisy-err\n')),
         '1 failed in 0.00s'), returncode=EXIT_FAILED)
 
 
@@ -728,8 +769,8 @@ def test_failed_setup_once_output_is_reported(tmp_path):
     make_hook_dir(tmp_path, 'setup_once', 'echo noisy-out\nexit 1\n')
     result = run_cmdspecs('hooks', cwd=tmp_path)
     assert_output(result, session('hooks', '1 test', '', '1 error in 0.00s'),
-                  'cmdspecs: hooks/setup_once: exited with 1\nnoisy-out\n',
-                  EXIT_FAILED)
+                  'cmdspecs: %s: exited with 1\nnoisy-out\n' %
+                  native('hooks/setup_once'), EXIT_FAILED)
 
 
 def test_no_capture_option_passes_hook_output_through(tmp_path):
@@ -752,16 +793,12 @@ def test_timeout_kills_hung_test_and_keeps_output(tmp_path):
             ('foo', 'timed out after 0.5 seconds\n'
                     'stdout diff:\n'
                     '--- /dev/null\tTIMESTAMP\n'
-                    '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+                    '+++ ' + native('./foo.stdout-actual') + '\tTIMESTAMP\n'
                     '@@ -0,0 +1 @@\n'
                     '+started\n')),
         '1 failed in 0.00s', timeout='0.5'), returncode=EXIT_FAILED)
     assert (tmp_path / 'foo.stdout-actual').read_text() == 'started\n'
-    pid = int((tmp_path / 'pid').read_text())
-    with pytest.raises(ProcessLookupError):
-        for _ in range(50):
-            os.kill(pid, 0)
-            time.sleep(0.1)
+    assert_process_ends(int((tmp_path / 'pid').read_text()))
 
 
 @pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
@@ -774,7 +811,8 @@ def test_timeout_applies_to_hooks(tmp_path, hook):
     # still run, so the failure is the one message.
     assert_output(result, session(
         '.', '1 test', '. F [100%]\n\n' + failures(
-            ('foo', './%s: timed out after 0.5 seconds\nnoisy-out\n' % hook)),
+            ('foo', '%s: timed out after 0.5 seconds\nnoisy-out\n' %
+             native('./' + hook))),
         '1 failed in 0.00s', timeout='0.5'), returncode=EXIT_FAILED)
 
 
@@ -784,8 +822,8 @@ def test_timeout_applies_to_setup_once(tmp_path):
     result = run_cmdspecs('-o', '0.5', '.', cwd=tmp_path)
     assert_output(result, session(
         '.', '1 test', '', '1 error in 0.00s', timeout='0.5'),
-        'cmdspecs: ./setup_once: timed out after 0.5 seconds\n',
-        EXIT_FAILED)
+        'cmdspecs: %s: timed out after 0.5 seconds\n' %
+        native('./setup_once'), EXIT_FAILED)
 
 
 def test_timeout_does_not_affect_fast_tests(tmp_path):
@@ -804,6 +842,7 @@ def test_timeout_must_be_positive(tmp_path, value):
                   returncode=EXIT_USAGE)
 
 
+@needs_sigint
 def test_interrupt_kills_children_of_script(tmp_path):
     write_script(tmp_path / 'foo.script',
                  'sleep 60 &\necho $! > "$SRCDIR/pid"\n'
@@ -811,11 +850,7 @@ def test_interrupt_kills_children_of_script(tmp_path):
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == EXIT_INTERRUPTED, \
         result.stdout + result.stderr
-    pid = int((tmp_path / 'pid').read_text())
-    with pytest.raises(ProcessLookupError):
-        for _ in range(50):
-            os.kill(pid, 0)
-            time.sleep(0.1)
+    assert_process_ends(int((tmp_path / 'pid').read_text()))
 
 
 def test_version_option_prints_version(tmp_path):
@@ -855,7 +890,7 @@ def test_failures_of_stderr_and_exit_code_are_reported(tmp_path, option):
         '.', '1 test', dots + failures(
             ('foo', 'stderr diff:\n'
                     '--- /dev/null\tTIMESTAMP\n'
-                    '+++ ./foo.stderr-actual\tTIMESTAMP\n'
+                    '+++ ' + native('./foo.stderr-actual') + '\tTIMESTAMP\n'
                     '@@ -0,0 +1 @@\n'
                     '+oops\n'
                     'got exit code 3, expected 0\n')),
@@ -891,12 +926,13 @@ def test_timeout_kills_script_which_ignores_sigterm(tmp_path):
             ('foo', 'timed out after 0.5 seconds\n'
                     'stdout diff:\n'
                     '--- /dev/null\tTIMESTAMP\n'
-                    '+++ ./foo.stdout-actual\tTIMESTAMP\n'
+                    '+++ ' + native('./foo.stdout-actual') + '\tTIMESTAMP\n'
                     '@@ -0,0 +1 @@\n'
                     '+started\n')),
         '1 failed in 0.00s', timeout='0.5'), returncode=EXIT_FAILED)
 
 
+@needs_exec_bit
 @pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
                                   'teardown'])
 def test_non_executable_hook_fails_the_test(tmp_path, hook):
@@ -910,6 +946,7 @@ def test_non_executable_hook_fails_the_test(tmp_path, hook):
         '1 failed in 0.00s'), returncode=EXIT_FAILED)
 
 
+@needs_exec_bit
 @pytest.mark.parametrize('hook', ['setup_once', 'teardown_once'])
 def test_non_executable_once_hook_is_an_error(tmp_path, hook):
     write_script(tmp_path / hook, '')
@@ -930,5 +967,6 @@ def test_failing_setup_once_skips_later_dirs(tmp_path):
     result = run_cmdspecs('one', 'two', cwd=tmp_path)
     assert_output(result, session('one, two', '2 tests', '',
                                   '1 error in 0.00s'),
-                  'cmdspecs: one/setup_once: exited with 1\n', EXIT_FAILED)
+                  'cmdspecs: %s: exited with 1\n' % native('one/setup_once'),
+                  EXIT_FAILED)
     assert not (tmp_path / 'two-teardown_once').exists()

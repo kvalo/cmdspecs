@@ -42,11 +42,11 @@ def test_scan_finds_setup_and_teardown_files():
     td = cmdspecs.TestDir()
     td.scan('tests', filenames=['setup_once', 'setup', 'teardown',
                                 'teardown_once'])
-    assert td.setup_once == 'tests/setup_once'
-    assert td.setup == 'tests/setup'
+    assert td.setup_once == os.path.join('tests', 'setup_once')
+    assert td.setup == os.path.join('tests', 'setup')
     assert td.tests == []
-    assert td.teardown == 'tests/teardown'
-    assert td.teardown_once == 'tests/teardown_once'
+    assert td.teardown == os.path.join('tests', 'teardown')
+    assert td.teardown_once == os.path.join('tests', 'teardown_once')
 
 
 def test_scan_finds_tests():
@@ -57,7 +57,7 @@ def test_scan_finds_tests():
     assert len(td.tests) == 1
     test = td.tests[0]
     assert test.name == 'foo'
-    assert test.script == 'tests/foo.script'
+    assert test.script == os.path.join('tests', 'foo.script')
     assert test.stdin is None
 
 
@@ -70,7 +70,7 @@ def test_scan_finds_all_per_test_files():
     assert len(td.tests) == 1
     test = td.tests[0]
     for suffix in suffixes:
-        assert getattr(test, suffix) == 'tests/foo.' + suffix
+        assert getattr(test, suffix) == os.path.join('tests', 'foo.' + suffix)
 
 
 def test_scan_ignores_output_files():
@@ -121,10 +121,14 @@ def test_cat_returns_contents_of_file(tmp_path):
     assert cmdspecs.cat(str(filename)) == 'foobar'
 
 
+def write_script(path, text):
+    # newline='\n', as on Windows the output of a script has LF too.
+    path.write_text(text, newline='\n')
+    path.chmod(0o755)
+
+
 def make_script(tmp_path, name, body):
-    script = tmp_path / (name + '.script')
-    script.write_text('#!/bin/sh\n' + body)
-    script.chmod(0o755)
+    write_script(tmp_path / (name + '.script'), '#!/bin/sh\n' + body)
 
 
 def run_single_test(tmp_path):
@@ -163,8 +167,7 @@ def test_run_test_accepts_signal_exit_code(tmp_path):
 def test_run_test_reports_signal_killed_setup(tmp_path):
     make_script(tmp_path, 'foo', 'true\n')
     setup = tmp_path / 'foo.setup'
-    setup.write_text('#!/bin/sh\nkill -KILL $$\n')
-    setup.chmod(0o755)
+    write_script(setup, '#!/bin/sh\nkill -KILL $$\n')
     assert run_single_test(tmp_path) == \
         ['%s: exited with 137 (SIGKILL)' % setup]
 
@@ -236,8 +239,8 @@ def test_run_test_feeds_stdin(tmp_path):
     # The contents of the .stdin file are given to the script as its
     # standard input.
     make_script(tmp_path, 'foo', 'cat\n')
-    (tmp_path / 'foo.stdin').write_text('hello\n')
-    (tmp_path / 'foo.stdout').write_text('hello\n')
+    (tmp_path / 'foo.stdin').write_text('hello\n', newline='\n')
+    (tmp_path / 'foo.stdout').write_text('hello\n', newline='\n')
     assert run_single_test(tmp_path) == []
 
 
@@ -302,14 +305,15 @@ def test_run_test_runs_teardown_and_keeps_diff_when_it_fails(tmp_path):
     # the test, not instead of it.
     make_script(tmp_path, 'foo', 'echo hello\n')
     teardown = tmp_path / 'foo.teardown'
-    teardown.write_text('#!/bin/sh\nexit 4\n')
-    teardown.chmod(0o755)
+    write_script(teardown, '#!/bin/sh\nexit 4\n')
     errors = run_single_test(tmp_path)
     assert len(errors) == 2
     assert errors[0].startswith('stdout diff:\n')
     assert errors[1] == '%s: exited with 4' % teardown
 
 
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='MSYS runs scripts without the execute permission')
 def test_run_test_removes_output_files_when_script_cannot_run(tmp_path):
     # When the script cannot be started, the error is reported and no
     # output files are left behind.
@@ -339,9 +343,7 @@ def test_run_test_kills_leftovers_of_script_on_windows(monkeypatch, tmp_path):
     monkeypatch.setattr(cmdspecs.CommandTester, 'script_command',
                         lambda self, script_name: [script_name])
     make_script(tmp_path, 'foo', '')
-    setup = tmp_path / 'foo.setup'
-    setup.write_text('#!/bin/sh\n', newline='\n')
-    setup.chmod(0o755)
+    write_script(tmp_path / 'foo.setup', '#!/bin/sh\n')
     assert run_single_test(tmp_path) == []
     assert killed == [str(tmp_path / 'foo.script')]
 
