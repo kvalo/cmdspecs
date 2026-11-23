@@ -56,9 +56,18 @@ EXIT_NO_TESTS = 5
 # timed out, or on Windows the Ctrl-Break and the end of its job.
 KILL_GRACE = 2
 
-# Access rights for putting a process in a job object on Windows.
+# Seconds to wait on Windows for the processes of a killed job to exit.
+KILL_WAIT = 5
+
+# Access rights for putting a process in a job object on Windows, and
+# for waiting for it to exit.
 PROCESS_TERMINATE = 0x0001
 PROCESS_SET_QUOTA = 0x0100
+SYNCHRONIZE = 0x00100000
+
+# JobObjectBasicProcessIdList of QueryInformationJobObject().
+JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3
+ERROR_MORE_DATA = 234
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -272,6 +281,11 @@ def windows_kernel32():
     kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE,
                                                   wintypes.HANDLE]
     kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.QueryInformationJobObject.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD,
+        wintypes.LPDWORD]
+    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     return kernel32
 
@@ -314,8 +328,43 @@ class WindowsProcessGroup(ProcessGroup):
         with contextlib.suppress(OSError):
             self.proc.send_signal(signal.CTRL_BREAK_EVENT)
 
+    def process_ids(self):
+        '''Return the ids of the processes in the job.'''
+        import ctypes
+        from ctypes import wintypes
+        count = 16
+        while True:
+            class ProcessIdList(ctypes.Structure):
+                _fields_ = [('assigned', wintypes.DWORD),
+                            ('listed', wintypes.DWORD),
+                            ('ids', ctypes.c_size_t * count)]
+            info = ProcessIdList()
+            if self.kernel32.QueryInformationJobObject(
+                    self.job, JOB_OBJECT_BASIC_PROCESS_ID_LIST,
+                    ctypes.byref(info), ctypes.sizeof(info), None):
+                return info.ids[:info.listed]
+            if ctypes.get_last_error() != ERROR_MORE_DATA:
+                return []
+            count *= 2
+
     def kill(self):
-        self.kernel32.TerminateJobObject(self.job, 1)
+        # TerminateJobObject only starts to terminate the processes,
+        # and they keep their files open until they have exited, so
+        # wait for that. Open them before, so that their ids can't be
+        # reused for other processes by then.
+        processes = [self.kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+                     for pid in self.process_ids()]
+        processes = [process for process in processes if process]
+        try:
+            self.kernel32.TerminateJobObject(self.job, 1)
+            deadline = time.monotonic() + KILL_WAIT
+            for process in processes:
+                timeout = max(deadline - time.monotonic(), 0)
+                self.kernel32.WaitForSingleObject(process,
+                                                  int(timeout * 1000))
+        finally:
+            for process in processes:
+                self.kernel32.CloseHandle(process)
 
     def close(self):
         self.kernel32.CloseHandle(self.job)
