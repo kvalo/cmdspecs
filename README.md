@@ -138,6 +138,15 @@ directory in your `PATH`:
 install -m 755 cmdspecs ~/.local/bin/
 ```
 
+The script is also attached to each release on the
+[releases page](https://github.com/kvalo/cmdspecs/releases), so you
+can download the latest release without the source directory:
+
+```bash
+curl -LO https://github.com/kvalo/cmdspecs/releases/latest/download/cmdspecs
+install -m 755 cmdspecs ~/.local/bin/
+```
+
 ## Development
 
 `cmdspecs` has its own tests, which need [pytest](https://pytest.org).
