@@ -132,6 +132,7 @@ def run_single_test(tmp_path):
     tester.datadir = str(tmp_path)
     tester.tempdir = str(tmp_path)
     tester.capture = True
+    tester.timings = {}
     td = cmdspecs.TestDir()
     td.scan(str(tmp_path))
     return [str(e) for e in tester.run_test(td.tests[0])]
@@ -317,6 +318,32 @@ def test_run_test_removes_output_files_when_script_cannot_run(tmp_path):
     assert len(errors) == 1
     assert errors[0].startswith('could not run ')
     assert sorted(x.name for x in tmp_path.iterdir()) == ['foo.script']
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='simulates Windows')
+def test_run_test_kills_leftovers_of_script_on_windows(monkeypatch, tmp_path):
+    # Windows can't remove the output files of a test while what its
+    # script left running has them open, so that is killed when the
+    # script exits. What setup and teardown scripts start is left
+    # alone, so that setup_once can start a daemon. This runs on Unix
+    # with a fake for the job object.
+    killed = []
+
+    class Group(cmdspecs.ProcessGroup):
+        def kill(self):
+            killed.append(self.proc.args[0])
+            super().kill()
+
+    monkeypatch.setattr(cmdspecs.sys, 'platform', 'win32')
+    monkeypatch.setattr(cmdspecs, 'WindowsProcessGroup', Group)
+    monkeypatch.setattr(cmdspecs.CommandTester, 'script_command',
+                        lambda self, script_name: [script_name])
+    make_script(tmp_path, 'foo', '')
+    setup = tmp_path / 'foo.setup'
+    setup.write_text('#!/bin/sh\n', newline='\n')
+    setup.chmod(0o755)
+    assert run_single_test(tmp_path) == []
+    assert killed == [str(tmp_path / 'foo.script')]
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):

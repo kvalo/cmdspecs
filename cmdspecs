@@ -10,6 +10,7 @@ import contextlib
 import datetime
 import difflib
 import errno
+import functools
 import hashlib
 import os
 import platform
@@ -52,8 +53,12 @@ EXIT_USAGE = 4
 EXIT_NO_TESTS = 5
 
 # Seconds between the SIGTERM and the SIGKILL sent to a script which
-# timed out.
+# timed out, or on Windows the Ctrl-Break and the end of its job.
 KILL_GRACE = 2
+
+# Access rights for putting a process in a job object on Windows.
+PROCESS_TERMINATE = 0x0001
+PROCESS_SET_QUOTA = 0x0100
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -213,6 +218,99 @@ class ScriptError(Exception):
         if not self.output:
             return self.msg
         return '%s\n%s' % (self.msg, self.output)
+
+
+class ProcessGroup:
+
+    '''A script running in a process group of its own.
+
+    The group lets the processes which the script starts be killed
+    with it, so that they don't keep running or keep its output files
+    open.
+
+    '''
+
+    def __init__(self, args, **kwargs):
+        self.proc = subprocess.Popen(args, start_new_session=True,
+                                     **kwargs)
+
+    def signal(self, sig):
+        # macOS fails killpg with EPERM, not ESRCH, if the group has
+        # only zombies left.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(self.proc.pid, sig)
+
+    def terminate(self):
+        self.signal(signal.SIGTERM)
+
+    def kill(self):
+        self.signal(signal.SIGKILL)
+
+    def close(self):
+        pass
+
+
+@functools.cache
+def windows_kernel32():
+    '''Return kernel32.dll with its job object functions declared.'''
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL,
+                                     wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE,
+                                                  wintypes.HANDLE]
+    kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    return kernel32
+
+
+class WindowsProcessGroup(ProcessGroup):
+
+    '''A script running in a process group and a job object of its own.
+
+    Windows can't kill a process group. Under Git for Windows the
+    processes which a script starts are not even its children for
+    Windows, so taskkill /T misses them, but they stay in the job
+    object of the script, which can be killed as a whole.
+
+    '''
+
+    def __init__(self, args, **kwargs):
+        import ctypes
+        self.kernel32 = windows_kernel32()
+        self.job = self.kernel32.CreateJobObjectW(None, None)
+        if not self.job:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            self.proc = subprocess.Popen(
+                args, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                **kwargs)
+        except BaseException:
+            self.close()
+            raise
+        # What the script starts before it is in the job escapes the
+        # job, but sh takes longer than this to start anything.
+        process = self.kernel32.OpenProcess(
+            PROCESS_SET_QUOTA | PROCESS_TERMINATE, False, self.proc.pid)
+        if process:
+            self.kernel32.AssignProcessToJobObject(self.job, process)
+            self.kernel32.CloseHandle(process)
+
+    def terminate(self):
+        # Ctrl-Break is the nearest thing to SIGTERM. It can't be sent
+        # if cmdspecs has no console.
+        with contextlib.suppress(OSError):
+            self.proc.send_signal(signal.CTRL_BREAK_EVENT)
+
+    def kill(self):
+        self.kernel32.TerminateJobObject(self.job, 1)
+
+    def close(self):
+        self.kernel32.CloseHandle(self.job)
 
 
 BOLD = '1'
@@ -609,7 +707,8 @@ class CommandTester:
             return [script_name]
         return [self.find_sh(), '-c', 'exec "$0"', script_name]
 
-    def run_process(self, script_name, test, **kwargs):
+    def run_process(self, script_name, test, kill_leftovers=False,
+                    **kwargs):
         '''Run a script and return its exit code.
 
         A script killed by signal N returns 128 + N, like in a shell.
@@ -619,36 +718,43 @@ class CommandTester:
         don't keep the output files open. Raise ScriptTimeout if the
         script runs longer than self.timeout.
 
+        Windows can't remove a file which a process has open, so there
+        kill_leftovers also kills what the script left running when it
+        exited, as that would keep the output files of the test open.
+
         '''
-        proc = subprocess.Popen(self.script_command(script_name),
-                                env=self.add_to_env(test),
-                                start_new_session=True, **kwargs)
+        if sys.platform == 'win32':
+            group_class = WindowsProcessGroup
+        else:
+            group_class = ProcessGroup
+        group = group_class(self.script_command(script_name),
+                            env=self.add_to_env(test), **kwargs)
         try:
-            return shell_exit_code(proc.wait(timeout=self.timeout))
+            returncode = group.proc.wait(timeout=self.timeout)
+            if kill_leftovers and sys.platform == 'win32':
+                group.kill()
+            return shell_exit_code(returncode)
         except subprocess.TimeoutExpired:
-            self.kill_group(proc)
+            self.kill_group(group)
             raise ScriptTimeout()
         except BaseException:
-            self.kill_group(proc)
+            self.kill_group(group)
             raise
+        finally:
+            group.close()
 
-    def kill_group(self, proc):
-        '''Kill the process group of proc and wait for proc to exit.'''
-        # macOS fails killpg with EPERM, not ESRCH, if the group has
-        # only zombies left.
-        gone = (ProcessLookupError, PermissionError)
-        for sig, grace in [(signal.SIGTERM, KILL_GRACE),
-                           (signal.SIGKILL, None)]:
-            with contextlib.suppress(*gone):
-                os.killpg(proc.pid, sig)
+    def kill_group(self, group):
+        '''Kill a script with what it started and wait for it to exit.'''
+        for stop, grace in [(group.terminate, KILL_GRACE),
+                            (group.kill, None)]:
+            stop()
             try:
-                proc.wait(timeout=grace)
+                group.proc.wait(timeout=grace)
                 break
             except subprocess.TimeoutExpired:
                 pass
         # Also kill what the script left running after it exited.
-        with contextlib.suppress(*gone):
-            os.killpg(proc.pid, signal.SIGKILL)
+        group.kill()
 
     def run_script(self, script_name, test=None):
         '''Run a setup or teardown script, if there is one.
@@ -788,7 +894,8 @@ class CommandTester:
                 stdin = subprocess.DEVNULL
             try:
                 return self.run_process(test.script, test, stdin=stdin,
-                                        stdout=stdout, stderr=stderr)
+                                        stdout=stdout, stderr=stderr,
+                                        kill_leftovers=True)
             except ScriptTimeout:
                 return None
 
