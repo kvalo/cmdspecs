@@ -40,9 +40,9 @@ tags like `v0.34.0`.
    - Fix the link references at the bottom: remove `[Unreleased]` and
      add `[X.Y.Z]: https://github.com/kvalo/cmdspecs/compare/vPREV...vX.Y.Z`.
    - Run `./check` and `./lint`.
-2. Push the release commit to `staging` (ask first) and wait for CI
-   with `gh run watch`. If the commit changes after that, e.g. by
-   amending, the tag must point at the new hash.
+2. Push the release commit to `staging` and wait for CI with
+   `gh run watch`. If the commit changes after that, e.g. by amending,
+   the tag must point at the new hash.
 3. The user signs and tags the exact commit that passed CI, e.g.
    `git tag -s vX.Y.Z <hash> -m "cmdspecs vX.Y.Z"`, and pushes the
    commit and the tag to `main`. Never push to `main` or create the
@@ -54,7 +54,7 @@ tags like `v0.34.0`.
    X.Y.Z+git`: set the version to `X.Y.Z+git` in both files, add
    `## [Unreleased]` back above `[X.Y.Z]` in CHANGELOG.md and its
    `[Unreleased]: .../compare/vX.Y.Z...HEAD` link reference. Run
-   `./check` and `./lint`, then push to `staging` (ask first).
+   `./check` and `./lint`, then push to `staging`.
 
 ## Testing
 
