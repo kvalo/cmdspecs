@@ -66,3 +66,20 @@ jobs:
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
       - name: Run tests
         run: ./check
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - name: Install pytest
+        run: pip install ".[test]"
+      # cmdspecs finds a different sh from PowerShell and from Git Bash,
+      # and the scripts get a different PATH, so test both.
+      - name: Run tests from PowerShell
+        run: python -m pytest
+      - name: Run tests from Git Bash
+        shell: bash
+        run: ./check
