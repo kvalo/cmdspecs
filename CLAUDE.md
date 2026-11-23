@@ -12,7 +12,10 @@ working with code in this repository.
 
 - `cmdspecs` is the whole program: a single executable Python 3
   script with no `.py` extension and no package. There are no runtime
-  dependencies.
+  dependencies except `sh` to run the scripts, which on Windows comes
+  from Git for Windows or MSYS2.
+- `TODO.md` lists planned work and known shortcomings which were
+  deliberately left alone. Check it before "fixing" one of them.
 - `cmdspecs.1` is the manpage. Edit it directly; nothing generates
   it. View it with `man -l cmdspecs.1`. When you add or change a
   command line option, update its SYNOPSIS and OPTIONS sections.
@@ -83,13 +86,16 @@ like `v0.34.0`.
   (markdownlint, config in `.mdlrc`) on the Markdown files, groff
   to check the manpage for warnings, yamllint (config in
   `.yamllint`) on the GitHub workflows if it is installed, and
-  `reuse lint` if it is installed. It is
-  separate from `./check` because those tools are optional. When you
-  add a new script, add it to the file list in `./lint`, because
-  `cmdspecs` and the test scripts have no file extensions to glob on.
-  The same goes for a new Markdown file.
-- `tests/test_cmdspecs.py` loads the `cmdspecs` script with
-  `importlib` because it has no `.py` extension.
+  `reuse lint` if it is installed. It is separate from `./check`
+  because those tools are optional. `pip install .[lint]` gives
+  flake8, shellcheck and reuse; mdl is a Ruby gem. When you add a new
+  script, add it to the file list in `./lint`, because `cmdspecs` and
+  the test scripts have no file extensions to glob on. The same goes
+  for a new Markdown file.
+- `MANIFEST.in` names the top-level files of the sdist (`check`,
+  `lint`, Markdown files, lint configs). Add a new one there too.
+- The tests load the `cmdspecs` script with `importlib` because it
+  has no `.py` extension.
 - `test_manpage_documents_all_options` fails if an option from
   `CommandTester.make_parser()` is missing from the manpage's OPTIONS
   section.
@@ -100,8 +106,11 @@ like `v0.34.0`.
   (and the stderr equivalents) into the test dir. Don't commit these
   files. You can run a spec by hand, e.g.
   `./cmdspecs tests/specs/echo`.
-- CI also runs the tests on Windows, where there is no way to try
-  them locally. Keep new tests portable: run cmdspecs with
+- CI also runs the tests on Python 3.10 to the newest release, and
+  on macOS and Windows, where there is no way to try them locally.
+  Don't use syntax newer than Python 3.10. `.gitattributes` checks
+  out all text files with LF, also on Windows, so that the specs
+  match. Keep new tests portable: run cmdspecs with
   `sys.executable`, write the files of a test dir with
   `newline='\n'`, and expect the paths in cmdspecs output with
   `native()` from `tests/test_specs.py`. Skip a test which can't work
@@ -114,8 +123,8 @@ like `v0.34.0`.
   small tweaks, internal changes or test changes. Group entries under
   Added, Changed, Deprecated, Removed, Fixed and Security.
 - Wrap all documentation files (README, CHANGELOG.md, CLAUDE.md,
-  Markdown, etc.) at 72 columns. Code spans and commands that can't be broken
-  may exceed it.
+  Markdown, etc.) at 72 columns. Code spans and commands that can't
+  be broken may exceed it.
 
 ## Licensing
 
