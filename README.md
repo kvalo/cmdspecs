@@ -199,4 +199,4 @@ Copyright 2025-2026 Kalle Valo
 
 `cmdspecs` is free software, licensed under the GNU General Public
 License, version 3 or (at your option) any later version. See the
-file `COPYING` for the full text.
+file `LICENSES/GPL-3.0-or-later.txt` for the full text.

@@ -8,6 +8,7 @@ version = "0.34.0+git"
 description = "black box testing of Unix command line tools"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "GPL-3.0-or-later"
+license-files = ["LICENSES/*.txt"]
 authors = [
     {name = "Lars Wirzenius", email = "liw@liw.fi"},
     {name = "Kalle Valo", email = "kalle@valot.fi"}
