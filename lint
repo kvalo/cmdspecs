@@ -29,6 +29,13 @@ else
     echo "lint: yamllint not found, skipping workflow check"
 fi
 
+# reuse is optional.
+if command -v reuse >/dev/null; then
+    reuse lint --lines
+else
+    echo "lint: reuse not found, skipping REUSE check"
+fi
+
 mdl CHANGELOG.md CLAUDE.md README.md TODO.md
 
 echo "lint: ok"

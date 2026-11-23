@@ -81,8 +81,9 @@ like `v0.34.0`.
   asserts that cmdspecs reports it.
 - `./lint` runs flake8 (config in `.flake8`), shellcheck, mdl
   (markdownlint, config in `.mdlrc`) on the Markdown files, groff
-  to check the manpage for warnings, and yamllint (config in
-  `.yamllint`) on the GitHub workflows if it is installed. It is
+  to check the manpage for warnings, yamllint (config in
+  `.yamllint`) on the GitHub workflows if it is installed, and
+  `reuse lint` if it is installed. It is
   separate from `./check` because those tools are optional. When you
   add a new script, add it to the file list in `./lint`, because
   `cmdspecs` and the test scripts have no file extensions to glob on.
@@ -115,6 +116,17 @@ like `v0.34.0`.
 - Wrap all documentation files (README, CHANGELOG.md, CLAUDE.md,
   Markdown, etc.) at 72 columns. Code spans and commands that can't be broken
   may exceed it.
+
+## Licensing
+
+- cmdspecs is GPL-3.0-or-later and follows the
+  [REUSE](https://reuse.software) specification. The license text is
+  in `LICENSES/GPL-3.0-or-later.txt`.
+- Every new file needs `SPDX-FileCopyrightText` and
+  `SPDX-License-Identifier` tags in a header comment. In Markdown
+  files, put them in an HTML comment after the first heading. The
+  spec files can't have one, so they are annotated in `REUSE.toml`
+  instead; add a new spec dir there.
 
 ## Commits
 
