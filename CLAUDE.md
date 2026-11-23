@@ -27,9 +27,10 @@ working with code in this repository.
 
 ## Release process
 
-The user pushes to `main` and tags; Claude prepares the commits and
-reminds the user of each step. Version numbers look like `0.34.0` and
-tags like `v0.34.0`.
+The user pushes to `main` and tags. Claude prepares the commits,
+creates the GitHub release with `gh` (after asking) and reminds the
+user of the other steps. Version numbers look like `0.34.0` and tags
+like `v0.34.0`.
 
 1. Make the release commit, subject `cmdspecs vX.Y.Z`:
    - Replace the `+git` version with `X.Y.Z` in `VERSION` in
@@ -47,8 +48,15 @@ tags like `v0.34.0`.
    `git tag -s vX.Y.Z <hash> -m "cmdspecs vX.Y.Z"`, and pushes the
    commit and the tag to `main`. Never push to `main` or create the
    tag; remind the user instead.
-4. The user creates a new release for the tag on github.com. Remind
-   the user; Claude does not create GitHub releases.
+4. Once the tag is on origin, ask, then create the GitHub release:
+   save the `[X.Y.Z]` section of CHANGELOG.md, without its heading,
+   to a scratchpad file, and save the `cmdspecs` script of the tag
+   (`git show vX.Y.Z:cmdspecs`, executable) to a scratchpad file named
+   `cmdspecs`, so that the asset is the same as the tagged commit. Run
+   `gh release create vX.Y.Z --verify-tag --title "cmdspecs vX.Y.Z"
+   --notes-file <file> <scratchpad>/cmdspecs`. `--verify-tag` makes it
+   fail when the tag has not been pushed. The script is attached as a
+   release asset so that users can download it directly.
 5. Once `origin/main` and the tag are on the release commit, make the
    post-release commit, subject `cmdspecs: mark version as
    X.Y.Z+git`: set the version to `X.Y.Z+git` in both files, add
