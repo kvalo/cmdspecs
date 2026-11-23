@@ -1,5 +1,11 @@
 # Changelog
 
+<!--
+SPDX-FileCopyrightText: 2011-2017 Lars Wirzenius
+SPDX-FileCopyrightText: 2025-2026 Kalle Valo
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 All notable changes to cmdspecs are documented in this file.
 
 The format is based on [Keep a Changelog][keepachangelog], and this

@@ -1,5 +1,11 @@
 # cmdspecs
 
+<!--
+SPDX-FileCopyrightText: 2011-2017 Lars Wirzenius
+SPDX-FileCopyrightText: 2025-2026 Kalle Valo
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 `cmdspecs` tests command line programs by running small (or big, if
 you prefer) shell scripts and comparing their output to files you
 wrote beforehand. It works with any program you can run from a shell,

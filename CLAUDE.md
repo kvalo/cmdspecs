@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+<!--
+SPDX-FileCopyrightText: 2026 Kalle Valo
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 This file provides guidance to Claude Code (claude.ai/code) when
 working with code in this repository.
 

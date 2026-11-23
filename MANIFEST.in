@@ -1,3 +1,7 @@
-include CHANGELOG.md TODO.md check lint .flake8 .mdlrc .mdl_style.rb
+# SPDX-FileCopyrightText: 2026 Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+include REUSE.toml CHANGELOG.md TODO.md check lint .flake8 .mdlrc .mdl_style.rb
 graft tests/specs
 global-exclude *-actual *-diff

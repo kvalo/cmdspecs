@@ -1,5 +1,10 @@
 # TODO
 
+<!--
+SPDX-FileCopyrightText: 2026 Kalle Valo
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 Planned tasks, and known shortcomings of cmdspecs which have been
 looked at but deliberately left alone, mostly because fixing them
 needs a design decision or changes the behaviour users may rely on.

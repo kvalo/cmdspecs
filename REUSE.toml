@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright and license of the spec files, which can't have a header
+# because cmdspecs compares them byte for byte.
+
+version = 1
+
+# The echo and fail specs are based on the tests of cmdtest.
+[[annotations]]
+path = ["tests/specs/echo/**", "tests/specs/fail/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = [
+    "2011 Lars Wirzenius",
+    "2025-2026 Kalle Valo",
+]
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = [
+    "tests/specs/env/**",
+    "tests/specs/exit/**",
+    "tests/specs/hooks/**",
+    "tests/specs/sort/**",
+    "tests/specs/stderr/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Kalle Valo"
+SPDX-License-Identifier = "GPL-3.0-or-later"
