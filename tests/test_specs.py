@@ -1,4 +1,4 @@
-# Copyright 2026  Kalle Valo
+# SPDX-FileCopyrightText: 2026 Kalle Valo
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #

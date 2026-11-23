@@ -1,5 +1,5 @@
-# Copyright 2011  Lars Wirzenius
-# Copyright 2025-2026  Kalle Valo
+# SPDX-FileCopyrightText: 2011 Lars Wirzenius
+# SPDX-FileCopyrightText: 2025-2026 Kalle Valo
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
