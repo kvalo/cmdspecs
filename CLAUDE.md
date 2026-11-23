@@ -86,6 +86,12 @@ tags like `v0.34.0`.
   (and the stderr equivalents) into the test dir. Don't commit these
   files. You can run a spec by hand, e.g.
   `./cmdspecs tests/specs/echo`.
+- CI also runs the tests on Windows, where there is no way to try
+  them locally. Keep new tests portable: run cmdspecs with
+  `sys.executable`, write the files of a test dir with
+  `newline='\n'`, and expect the paths in cmdspecs output with
+  `native()` from `tests/test_specs.py`. Skip a test which can't work
+  on Windows with `skipif(sys.platform == 'win32')` and a reason.
 
 ## Documentation
 

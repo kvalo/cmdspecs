@@ -212,6 +212,69 @@ are not run, but
 and
 .I teardown
 are.
+.SS Windows
+On Windows,
+.B cmdspecs
+needs the
+.B sh
+of Git for Windows or MSYS2 in
+.BR PATH .
+Windows ignores the
+.B #!\&
+line, so
+.B cmdspecs
+runs each script with that
+.BR sh ,
+which handles the line like Unix does.
+There a script needs no execute permission,
+and one without a
+.B #!\&
+line is run by
+.BR sh .
+.PP
+Run
+.B cmdspecs
+from Git Bash, or from cmd or PowerShell as
+.BR "python path\eto\ecmdspecs" ,
+as
+.B pip install
+makes no
+.I cmdspecs.exe
+for it.
+.PP
+The output is compared byte for byte.
+Native Windows programs write CRLF line endings,
+so the expected output files of their tests need them too,
+while the tools of Git for Windows write LF.
+Git for Windows checks out text files with CRLF by default,
+so mark the test files with
+.B \-text
+in
+.I .gitattributes
+to have them checked out as they were committed.
+.PP
+.B DATADIR
+and
+.B SRCDIR
+are Windows paths, which
+.B sh
+accepts, but
+.BR pwd (1)
+in a script shows a path in another form, such as
+.IR /c/Users/name .
+.PP
+Windows can't remove a file which a process has open,
+so when
+.I foo.script
+exits,
+.B cmdspecs
+kills what it left running,
+as that could keep the output files of the test open.
+What the setup and teardown scripts leave running is not killed.
+On a timeout or an interrupt, a script and its child processes get a
+Ctrl-Break instead of
+.BR SIGTERM ,
+and are killed if they are still running two seconds later.
 .SH OPTIONS
 .TP
 .BR \-t ", " \-\-test =\fITEST\fR
@@ -242,7 +305,10 @@ A script which timed out fails like one that exited with an error.
 The script and its child processes are sent
 .B SIGTERM
 and, if they are still running after two seconds,
-.BR SIGKILL .
+.BR SIGKILL ;
+see
+.B Windows
+above for how this works there.
 By default there is no limit.
 .TP
 .BR \-k ", " \-\-keep

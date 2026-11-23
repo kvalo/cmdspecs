@@ -110,8 +110,16 @@ running selected tests, timeouts and colored output.
 
 ## Requirements
 
-`cmdspecs` runs on Linux and macOS. It needs Python 3.10 or later and
-nothing beyond the standard library.
+`cmdspecs` runs on Linux, macOS and Windows. It needs Python 3.10 or
+later and nothing beyond the standard library.
+
+On Windows it also needs the `sh` of
+[Git for Windows](https://gitforwindows.org) or MSYS2 in `PATH`, as
+that runs the scripts. Run `cmdspecs` from Git Bash, or from cmd or
+PowerShell as `python path\to\cmdspecs`. Git for Windows checks out
+text files with CRLF line endings by default, so mark your test files
+with `-text` in `.gitattributes` to keep the expected output as you
+committed it. The manual page has more about Windows.
 
 ## Installation
 
@@ -166,7 +174,8 @@ To run it, install these tools first. They are only needed for
 - `yamllint` for the GitHub workflow files (optional, skipped if
   missing)
 
-GitHub Actions runs both `./check` and `./lint` for every push.
+GitHub Actions runs both `./check` and `./lint` for every push, and
+`./check` also on macOS and Windows.
 
 ## Project
 

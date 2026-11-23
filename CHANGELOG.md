@@ -10,6 +10,11 @@ cmdspecs was forked.
 
 ## [Unreleased]
 
+### Added
+
+- cmdspecs now works on Windows, with the `sh` of Git for Windows or
+  MSYS2 to run the scripts, and its tests run there in CI.
+
 ## [0.34.0] - 2026-11-19
 
 ### Added
