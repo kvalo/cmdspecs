@@ -23,7 +23,7 @@ import time
 import traceback
 
 
-VERSION = '0.35.0'
+VERSION = '0.35.0+git'
 
 
 def version_string():

@@ -14,6 +14,8 @@ project adheres to [Semantic Versioning][semver].
 Releases before 0.33 are of cmdtest and its yarn tool, from which
 cmdspecs was forked.
 
+## [Unreleased]
+
 ## [0.35.0] - 2026-11-23
 
 ### Added
@@ -421,6 +423,7 @@ had internal changes only.
 
 [keepachangelog]: https://keepachangelog.com/en/1.1.0/
 [semver]: https://semver.org/spec/v2.0.0.html
+[Unreleased]: https://github.com/kvalo/cmdspecs/compare/v0.35.0...HEAD
 [0.35.0]: https://github.com/kvalo/cmdspecs/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/kvalo/cmdspecs/compare/v0.33...v0.34.0
 [0.33]: https://github.com/kvalo/cmdspecs/releases/tag/v0.33
