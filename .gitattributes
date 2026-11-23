@@ -1,0 +1,5 @@
+# Check out text files with LF also on Windows, where Git for Windows
+# defaults to CRLF. The expected output of the specs must match the LF
+# which the scripts write, and the hash in the version of a git build
+# must not depend on the platform.
+* text=auto eol=lf
