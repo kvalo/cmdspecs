@@ -801,6 +801,33 @@ def test_timeout_kills_hung_test_and_keeps_output(tmp_path):
     assert_process_ends(int((tmp_path / 'pid').read_text()))
 
 
+def test_process_left_running_by_script_does_not_break_run(tmp_path):
+    # A test passes, and leaves no files behind, even if its script
+    # leaves a process running which has its output files open. Windows
+    # can't remove such files, so there cmdspecs kills the process.
+    write_script(tmp_path / 'foo.script', 'sleep 5 &\necho hi\n')
+    (tmp_path / 'foo.stdout').write_text('hi\n', newline='\n')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '1 test', '. . [100%]\n', '1 passed in 0.00s'))
+    assert sorted(x.name for x in tmp_path.iterdir()) == \
+        ['foo.script', 'foo.stdout']
+
+
+def test_setup_once_can_start_a_daemon(tmp_path):
+    # What setup_once leaves running keeps running for the tests, also
+    # on Windows, where what a test script leaves running is killed.
+    write_script(tmp_path / 'setup_once',
+                 'sleep 30 > /dev/null 2>&1 &\necho $! > "$DATADIR/pid"\n')
+    write_script(tmp_path / 'foo.script',
+                 'kill -0 "$(cat "$DATADIR/pid")"\n')
+    write_script(tmp_path / 'teardown_once',
+                 'kill "$(cat "$DATADIR/pid")"\n')
+    result = run_cmdspecs('.', cwd=tmp_path)
+    assert_output(result, session(
+        '.', '1 test', '. . [100%]\n', '1 passed in 0.00s'))
+
+
 @pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
                                   'teardown'])
 def test_timeout_applies_to_hooks(tmp_path, hook):
