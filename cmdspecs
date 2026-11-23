@@ -127,12 +127,20 @@ def shell_exit_code(returncode):
 
 
 def mtime(filename):
-    '''Return modification time of file in the format of diff -u.'''
-    try:
-        timestamp = os.stat(filename).st_mtime
-    except OSError:
-        return b''
-    dt = datetime.datetime.fromtimestamp(timestamp).astimezone()
+    '''Return modification time of file in the format of diff -u.
+
+    A filename of None stands for a missing file, which gets the epoch
+    like in diff -N, in UTC so that it is the same everywhere.
+
+    '''
+    if filename is None:
+        dt = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+    else:
+        try:
+            timestamp = os.stat(filename).st_mtime
+        except OSError:
+            return b''
+        dt = datetime.datetime.fromtimestamp(timestamp).astimezone()
     return dt.strftime('%Y-%m-%d %H:%M:%S.%f %z').encode()
 
 
@@ -859,8 +867,7 @@ class CommandTester:
                    ('stderr', test.stderr, stderr_name)]
         for what, expected_name, actual_name in outputs:
             diff_name = '%s.%s-diff' % (test.path_prefix, what)
-            diff = self.diff(expected_name or '/dev/null', actual_name,
-                             diff_name)
+            diff = self.diff(expected_name, actual_name, diff_name)
             if diff:
                 failures.append(TestFailure(test, '%s diff:\n%s' %
                                             (what, diff)))
@@ -905,11 +912,15 @@ class CommandTester:
         If the files don't differ, return an empty string and make
         sure that there's no diff file.
 
+        An expected_name of None means that the test has no expected
+        file, so the output should be empty. It is shown as /dev/null,
+        without reading that, as Windows doesn't have it.
+
         '''
 
         # Compare bytes, as the output need not be valid UTF-8. Keep
         # the newlines, so that a missing one at the end is a difference.
-        expected_lines = read_lines(expected_name)
+        expected_lines = read_lines(expected_name) if expected_name else []
         actual_lines = read_lines(actual_name)
         if expected_lines == actual_lines:
             remove(diff_name)
@@ -917,10 +928,11 @@ class CommandTester:
 
         # Like diff -u, mark a last line without a newline.
         diff_lines = []
+        fromfile = os.fsencode(expected_name or '/dev/null')
         for line in difflib.diff_bytes(difflib.unified_diff,
                                        expected_lines,
                                        actual_lines,
-                                       fromfile=os.fsencode(expected_name),
+                                       fromfile=fromfile,
                                        tofile=os.fsencode(actual_name),
                                        fromfiledate=mtime(expected_name),
                                        tofiledate=mtime(actual_name),

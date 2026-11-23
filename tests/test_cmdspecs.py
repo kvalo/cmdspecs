@@ -404,8 +404,21 @@ def test_diff_writes_raw_bytes_to_diff_file(tmp_path):
     actual = tmp_path / 'actual'
     actual.write_bytes(b'\xff\n')
     diff_name = tmp_path / 'diff'
-    cmdspecs.CommandTester().diff('/dev/null', str(actual), str(diff_name))
+    cmdspecs.CommandTester().diff(None, str(actual), str(diff_name))
     assert diff_name.read_bytes().endswith(b'\n+\xff\n')
+
+
+def test_diff_shows_no_expected_file_as_dev_null_from_epoch(tmp_path):
+    # Without an expected file the output should be empty, and the diff
+    # shows that as /dev/null with the epoch, like diff -N, also on
+    # Windows, which has no /dev/null.
+    actual = tmp_path / 'actual'
+    actual.write_text('hello\n')
+    diff = cmdspecs.CommandTester().diff(None, str(actual),
+                                         str(tmp_path / 'diff'))
+    assert diff.splitlines()[0] == \
+        '--- /dev/null\t1970-01-01 00:00:00.000000 +0000'
+    assert diff.splitlines()[2:] == ['@@ -0,0 +1 @@', '+hello']
 
 
 def test_diff_treats_missing_expected_file_as_empty(tmp_path):
