@@ -9,6 +9,7 @@ import importlib.util
 import io
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -165,6 +166,61 @@ def test_run_test_reports_signal_killed_setup(tmp_path):
     setup.chmod(0o755)
     assert run_single_test(tmp_path) == \
         ['%s: exited with 137 (SIGKILL)' % setup]
+
+
+@pytest.mark.parametrize('platform, returncode, code', [
+    ('linux', 3, 3), ('linux', -9, 137), ('win32', 3, 3),
+    ('win32', 255, 255), ('win32', 9 * 256, 137),
+    ('win32', 0xC000013A, 0xC000013A)])
+def test_shell_exit_code(monkeypatch, platform, returncode, code):
+    # A signal death is -N from subprocess on Unix and N * 256 from MSYS
+    # on Windows, and both become 128 + N.
+    monkeypatch.setattr(cmdspecs.sys, 'platform', platform)
+    assert cmdspecs.shell_exit_code(returncode) == code
+
+
+@pytest.mark.parametrize('platform', [sys.platform, 'win32'])
+def test_describe_exit_names_signals(monkeypatch, platform):
+    # On Windows the names come from MSYS, as the signal module there
+    # has no SIGKILL and calls 0 and 1 CTRL_C_EVENT and CTRL_BREAK_EVENT.
+    monkeypatch.setattr(cmdspecs.sys, 'platform', platform)
+    assert cmdspecs.describe_exit(137) == '137 (SIGKILL)'
+    assert cmdspecs.describe_exit(3) == '3'
+    assert cmdspecs.describe_exit(128) == '128'
+
+
+def test_script_command_runs_script_directly_on_unix(monkeypatch):
+    monkeypatch.setattr(cmdspecs.sys, 'platform', 'linux')
+    assert cmdspecs.CommandTester().script_command('d/foo.script') == \
+        ['d/foo.script']
+
+
+def test_script_command_uses_sh_on_windows(monkeypatch):
+    # Windows ignores the #! line, so sh runs the script and its exec
+    # handles the #! line.
+    monkeypatch.setattr(cmdspecs.sys, 'platform', 'win32')
+    monkeypatch.setattr(cmdspecs.shutil, 'which',
+                        lambda name: r'C:\Git\bin\sh.exe')
+    assert cmdspecs.CommandTester().script_command(r'd\foo.script') == \
+        [r'C:\Git\bin\sh.exe', '-c', 'exec "$0"', r'd\foo.script']
+
+
+def test_missing_sh_on_windows_is_one_error(monkeypatch, capsys):
+    # Without sh nothing can run, so cmdspecs says so once and exits with
+    # 1, before running any tests.
+    def broken(self, testdirs):
+        raise AssertionError('tests were run')
+
+    monkeypatch.setattr(cmdspecs.sys, 'platform', 'win32')
+    monkeypatch.setattr(cmdspecs.shutil, 'which', lambda name: None)
+    monkeypatch.setattr(cmdspecs.CommandTester, 'run_tests', broken)
+    monkeypatch.setattr(cmdspecs.sys, 'argv', ['cmdspecs', 'tests/specs/echo'])
+    with pytest.raises(SystemExit) as excinfo:
+        cmdspecs.main()
+    assert excinfo.value.code == cmdspecs.EXIT_FAILED
+    assert capsys.readouterr().err == (
+        'cmdspecs: sh not found in PATH; on Windows cmdspecs needs the sh '
+        'of Git for Windows or MSYS2\n')
 
 
 def test_run_test_accepts_expected_exit_code(tmp_path):

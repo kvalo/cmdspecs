@@ -9,6 +9,7 @@ import argparse
 import contextlib
 import datetime
 import difflib
+import errno
 import hashlib
 import os
 import platform
@@ -86,12 +87,38 @@ def remove(filename):
         os.remove(filename)
 
 
+# The signals of MSYS, which runs the scripts on Windows, where the
+# signal module has other numbers and lacks most of these.
+MSYS_SIGNALS = {1: 'SIGHUP', 2: 'SIGINT', 3: 'SIGQUIT', 4: 'SIGILL',
+                5: 'SIGTRAP', 6: 'SIGABRT', 8: 'SIGFPE', 9: 'SIGKILL',
+                11: 'SIGSEGV', 13: 'SIGPIPE', 14: 'SIGALRM', 15: 'SIGTERM'}
+
+
 def describe_exit(code):
     '''Return exit code as text, with the signal name if it looks like one.'''
-    try:
-        return '%d (%s)' % (code, signal.Signals(code - 128).name)
-    except ValueError:
-        return str(code)
+    if sys.platform == 'win32':
+        name = MSYS_SIGNALS.get(code - 128)
+    else:
+        try:
+            name = signal.Signals(code - 128).name
+        except ValueError:
+            name = None
+    return '%d (%s)' % (code, name) if name else str(code)
+
+
+def shell_exit_code(returncode):
+    '''Return the exit code of a script as a shell shows it.
+
+    A script killed by signal N gets -N from subprocess on Unix, and
+    N * 256 from MSYS on Windows. A shell shows both as 128 + N.
+
+    '''
+    if returncode < 0:
+        return 128 - returncode
+    if sys.platform == 'win32' and returncode % 256 == 0 and \
+            0 < returncode // 256 < 128:
+        return 128 + returncode // 256
+    return returncode
 
 
 def mtime(filename):
@@ -342,6 +369,9 @@ class CommandTester:
     # Seconds a script may run, or None for no limit.
     timeout = None
 
+    # The sh which runs the scripts on Windows, found when first needed.
+    sh = None
+
     def make_parser(self):
         parser = ArgumentParser(
             description='Blackbox test Unix command line tools. '
@@ -397,6 +427,9 @@ class CommandTester:
         if args.timeout is not None and args.timeout <= 0:
             parser.error('argument -o/--timeout: must be greater than 0')
         self.timeout = args.timeout
+        if sys.platform == 'win32':
+            # Once here rather than as a failure of every test.
+            self.find_sh()
 
         # The time each script took as (seconds, script) pairs, and the
         # time each test took in total. The keys are path prefixes of
@@ -553,6 +586,29 @@ class CommandTester:
             sys.stderr.write('cmdspecs: could not remove %s\n' %
                              self.tempdir)
 
+    def find_sh(self):
+        '''Return the sh which runs the scripts on Windows.'''
+        if not self.sh:
+            self.sh = shutil.which('sh')
+        if not self.sh:
+            raise FileNotFoundError(
+                errno.ENOENT, 'sh not found in PATH; on Windows cmdspecs '
+                'needs the sh of Git for Windows or MSYS2')
+        return self.sh
+
+    def script_command(self, script_name):
+        '''Return the command which runs a script.
+
+        Unix runs the interpreter named on the #! line of a script.
+        Windows ignores that line, but the exec of the sh in Git for
+        Windows and MSYS2 handles it like Unix does, so let that sh
+        run the script.
+
+        '''
+        if sys.platform != 'win32':
+            return [script_name]
+        return [self.find_sh(), '-c', 'exec "$0"', script_name]
+
     def run_process(self, script_name, test, **kwargs):
         '''Run a script and return its exit code.
 
@@ -564,11 +620,11 @@ class CommandTester:
         script runs longer than self.timeout.
 
         '''
-        proc = subprocess.Popen([script_name], env=self.add_to_env(test),
+        proc = subprocess.Popen(self.script_command(script_name),
+                                env=self.add_to_env(test),
                                 start_new_session=True, **kwargs)
         try:
-            returncode = proc.wait(timeout=self.timeout)
-            return 128 - returncode if returncode < 0 else returncode
+            return shell_exit_code(proc.wait(timeout=self.timeout))
         except subprocess.TimeoutExpired:
             self.kill_group(proc)
             raise ScriptTimeout()
