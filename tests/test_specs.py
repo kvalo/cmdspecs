@@ -831,7 +831,9 @@ def test_setup_once_can_start_a_daemon(tmp_path):
 @pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
                                   'teardown'])
 def test_timeout_applies_to_hooks(tmp_path, hook):
-    write_script(tmp_path / hook, 'echo noisy-out\nsleep 60\n')
+    # exec, so that no sh is left to report the killed sleep, as OpenBSD's
+    # does with "Terminated".
+    write_script(tmp_path / hook, 'echo noisy-out\nexec sleep 60\n')
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs('-o', '0.5', '.', cwd=tmp_path)
     # Only a failing foo.setup skips the script, the hooks around it
@@ -844,7 +846,7 @@ def test_timeout_applies_to_hooks(tmp_path, hook):
 
 
 def test_timeout_applies_to_setup_once(tmp_path):
-    write_script(tmp_path / 'setup_once', 'sleep 60\n')
+    write_script(tmp_path / 'setup_once', 'exec sleep 60\n')
     write_script(tmp_path / 'foo.script', '')
     result = run_cmdspecs('-o', '0.5', '.', cwd=tmp_path)
     assert_output(result, session(
