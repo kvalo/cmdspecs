@@ -136,9 +136,12 @@ like `v0.34.0`.
   `SPDX-License-Identifier` tags in a header comment. In Markdown
   files, put them in an HTML comment after the first heading. The
   configuration dotfiles (`.flake8`, `.gitignore`, etc.) have no
-  header, to keep them free of boilerplate, and the spec files can't
-  have one, so they are annotated in `REUSE.toml` instead; add a new
-  dotfile or spec dir there.
+  header, to keep them free of boilerplate, and the `.stdin`,
+  `.stdout`, `.stderr` and `.exit` files of the specs can't have one,
+  so they are annotated in `REUSE.toml` instead. Globs cover the spec
+  files, so a new spec needs no change there, but a new dotfile does.
+  All scripts, also the spec scripts (`.script`, `.setup`, `setup`,
+  etc.), need the header after the shebang.
 
 ## Commits
 

@@ -4,7 +4,8 @@
 #
 # Copyright and license of the files which have no header: the
 # configuration dotfiles, which are kept free of boilerplate, and the
-# spec files, which cmdspecs compares byte for byte.
+# stdin and expected output of the specs, which cmdspecs compares byte
+# for byte. The spec scripts have a header like any other script.
 
 version = 1
 
@@ -24,24 +25,33 @@ path = ".gitignore"
 SPDX-FileCopyrightText = "2025-2026 Kalle Valo"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-# The echo and fail specs are based on the tests of cmdtest.
 [[annotations]]
-path = ["tests/specs/echo/**", "tests/specs/fail/**"]
-precedence = "aggregate"
+path = [
+    "tests/specs/**/*.stdin",
+    "tests/specs/**/*.stdout",
+    "tests/specs/**/*.stderr",
+    "tests/specs/**/*.exit",
+]
+SPDX-FileCopyrightText = "2026 Kalle Valo"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# The echo and fail specs are based on the tests of cmdtest. The last
+# matching annotation wins, so this overrides the globs above. The
+# scripts are left out on purpose: they have a header, and reuse lint
+# must fail for one which doesn't.
+[[annotations]]
+path = [
+    "tests/specs/echo/*.stdin",
+    "tests/specs/echo/*.stdout",
+    "tests/specs/echo/*.stderr",
+    "tests/specs/echo/*.exit",
+    "tests/specs/fail/*.stdin",
+    "tests/specs/fail/*.stdout",
+    "tests/specs/fail/*.stderr",
+    "tests/specs/fail/*.exit",
+]
 SPDX-FileCopyrightText = [
     "2011 Lars Wirzenius",
     "2025-2026 Kalle Valo",
 ]
-SPDX-License-Identifier = "GPL-3.0-or-later"
-
-[[annotations]]
-path = [
-    "tests/specs/env/**",
-    "tests/specs/exit/**",
-    "tests/specs/hooks/**",
-    "tests/specs/sort/**",
-    "tests/specs/stderr/**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 Kalle Valo"
 SPDX-License-Identifier = "GPL-3.0-or-later"

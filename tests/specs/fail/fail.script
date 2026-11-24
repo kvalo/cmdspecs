@@ -1,4 +1,9 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: 2011 Lars Wirzenius
+# SPDX-FileCopyrightText: 2025-2026 Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Expected to fail: output with no .stdout file must be reported as a
 # diff. It also writes to DATADIR, so --keep has something to keep.
 
