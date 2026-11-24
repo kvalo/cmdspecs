@@ -107,8 +107,8 @@ like `v0.34.0`.
   files. You can run a spec by hand, e.g.
   `./cmdspecs tests/specs/echo`.
 - CI also runs the tests on Python 3.10 to the newest release, and
-  on Linux arm64, macOS and Windows, where there is no way to try
-  them locally.
+  on Linux arm64, macOS, Windows, FreeBSD and OpenBSD, where there is
+  no way to try them locally.
   Don't use syntax newer than Python 3.10. `.gitattributes` checks
   out all text files with LF, also on Windows, so that the specs
   match. Keep new tests portable: run cmdspecs with

@@ -67,6 +67,34 @@ jobs:
         # groff is expected to come with the runner image (man-db).
         run: ./lint
 
+  # GitHub has no BSD runners, so run the tests in a VM. The linters
+  # don't depend on the OS, so only run the tests.
+  test-bsd:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: freebsd
+            version: "15.1"
+            install: sudo pkg install -y python3 py312-pytest
+          - os: openbsd
+            version: "8.0"
+            install: sudo pkg_add python%3 py3-test
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.8.0
+        with:
+          operating_system: ${{ matrix.os }}
+          version: ${{ matrix.version }}
+      - name: Install pytest
+        shell: cpa.sh {0}
+        run: ${{ matrix.install }}
+      - name: Run tests
+        shell: cpa.sh {0}
+        run: ./check
+
   test-macos:
     runs-on: macos-latest
     steps:
