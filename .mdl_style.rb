@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Kalle Valo
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 all
 # The default style rejects ordered lists which are numbered 1, 2, 3.
 rule 'MD029', :style => :ordered

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Kalle Valo
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 [flake8]
 max-line-length = 79
 exclude = .git,__pycache__,build,dist

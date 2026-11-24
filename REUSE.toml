@@ -2,10 +2,27 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Copyright and license of the spec files, which can't have a header
-# because cmdspecs compares them byte for byte.
+# Copyright and license of the files which have no header: the
+# configuration dotfiles, which are kept free of boilerplate, and the
+# spec files, which cmdspecs compares byte for byte.
 
 version = 1
+
+[[annotations]]
+path = [
+    ".flake8",
+    ".gitattributes",
+    ".mdlrc",
+    ".mdl_style.rb",
+    ".yamllint",
+]
+SPDX-FileCopyrightText = "2026 Kalle Valo"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ".gitignore"
+SPDX-FileCopyrightText = "2025-2026 Kalle Valo"
+SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # The echo and fail specs are based on the tests of cmdtest.
 [[annotations]]

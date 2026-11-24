@@ -135,8 +135,10 @@ like `v0.34.0`.
 - Every new file needs `SPDX-FileCopyrightText` and
   `SPDX-License-Identifier` tags in a header comment. In Markdown
   files, put them in an HTML comment after the first heading. The
-  spec files can't have one, so they are annotated in `REUSE.toml`
-  instead; add a new spec dir there.
+  configuration dotfiles (`.flake8`, `.gitignore`, etc.) have no
+  header, to keep them free of boilerplate, and the spec files can't
+  have one, so they are annotated in `REUSE.toml` instead; add a new
+  dotfile or spec dir there.
 
 ## Commits
 
