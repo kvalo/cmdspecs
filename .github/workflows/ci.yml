@@ -81,6 +81,11 @@ jobs:
           - os: openbsd
             version: "8.0"
             install: sudo pkg_add python%3 py3-test
+          - os: netbsd
+            version: "11.0"
+            install: >-
+              sudo pkgin -y install python312 py312-test &&
+              sudo ln -s /usr/pkg/bin/python3.12 /usr/pkg/bin/python3
     steps:
       - uses: actions/checkout@v7
       - name: Start VM

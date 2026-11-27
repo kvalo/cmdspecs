@@ -116,8 +116,9 @@ running selected tests, timeouts and colored output.
 
 ## Requirements
 
-`cmdspecs` runs on Linux, macOS, FreeBSD, OpenBSD and Windows. It
-needs Python 3.10 or later and nothing beyond the standard library.
+`cmdspecs` runs on Linux, macOS, FreeBSD, OpenBSD, NetBSD and
+Windows. It needs Python 3.10 or later and nothing beyond the standard
+library.
 
 On Windows it also needs the `sh` of
 [Git for Windows](https://gitforwindows.org) or MSYS2 in `PATH`, as
@@ -190,7 +191,7 @@ To run it, install these tools first. They are only needed for
   missing)
 
 GitHub Actions runs both `./check` and `./lint` for every push, and
-`./check` also on macOS, Windows, FreeBSD and OpenBSD.
+`./check` also on macOS, Windows, FreeBSD, OpenBSD and NetBSD.
 
 ## Project
 
