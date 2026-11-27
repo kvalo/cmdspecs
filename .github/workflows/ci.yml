@@ -43,6 +43,23 @@ jobs:
       - name: Run tests
         run: ./check
 
+  # Alpine has musl and BusyBox instead of glibc and GNU coreutils,
+  # which is a useful portability check. Only run the tests, as the
+  # linters don't depend on the libc.
+  test-alpine:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.23
+      # Without an init process as PID 1, killed processes stay zombies
+      # and the tests think they are still running.
+      options: --init
+    steps:
+      - name: Install pytest
+        run: apk add --no-cache git python3 py3-pytest
+      - uses: actions/checkout@v7
+      - name: Run tests
+        run: ./check
+
   test-python:
     runs-on: ubuntu-latest
     strategy:
