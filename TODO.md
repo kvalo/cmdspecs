@@ -74,4 +74,7 @@ Not tested on Windows:
   `CTRL_C_EVENT`.
 - Colors in a console, which need VT processing, and in mintty, where
   `isatty()` is false.
+- A symlink to a directory which a test leaves in the work area,
+  which `cleanup_tempdir()` must not follow, as creating symlinks
+  needs privileges there.
 - WSL, which should work like Linux.
