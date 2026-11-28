@@ -83,8 +83,16 @@ like `v0.34.0`.
   `tests/test_specs.py`. `--data-file` keeps the data in FILE and
   adds to it when it exists. Its coverage config is a temp file, as
   `cmdspecs` has no `.py` extension for `--cov` to name. The Windows
-  code shows as missed on other systems. There is no minimum
-  coverage and CI does not run it.
+  code shows as missed on other systems.
+- Coverage on every system: on every run of `ci.yml`, Ubuntu, macOS,
+  the BSDs and Windows (Git Bash) run `./coverage --data-file`
+  instead of `./check`. `test-python`, `test-arm`, `test-alpine` and
+  the PowerShell run stay as they are, so the tests also run without
+  the measurement. The `coverage` job combines the data, and its
+  report, in the log and in the summary of the job, lists the lines
+  which no system ran. It is information only, no percentage fails
+  the job. `COVERAGE_PIP` pins the versions of pytest-cov and
+  coverage for every job.
 - `tests/test_cmdspecs.py` has the unit tests. `tests/test_specs.py`
   runs the `cmdspecs` script as a subprocess on each spec dir in
   `tests/specs/`. It copies each dir to `tmp_path` first so the repo

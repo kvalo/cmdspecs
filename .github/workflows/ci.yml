@@ -16,6 +16,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # The jobs of test, macOS, the BSDs and Windows run ./coverage
+  # instead of ./check, and the coverage job combines their data. Every
+  # job has the same versions, so that the data can be combined.
+  COVERAGE_PIP: pytest-cov==7.1.0 coverage==7.17.5
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -25,10 +31,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y flake8 python3-pytest shellcheck groff markdownlint yamllint
+      - name: Install pytest-cov
+        # The system Python is externally managed, so use a venv. It
+        # sees the pytest of apt.
+        run: |
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install $COVERAGE_PIP
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
       - name: Run tests
-        run: ./check
+        run: |
+          mkdir -p coverage-data
+          ./coverage --data-file coverage-data/linux
       - name: Run linters
         run: ./lint
+      - name: Upload coverage data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-linux
+          path: coverage-data/
+          if-no-files-found: error
 
   # The linters don't depend on the architecture, so only run the
   # tests.
@@ -94,14 +116,15 @@ jobs:
         include:
           - os: freebsd
             version: "15.1"
-            install: sudo pkg install -y python3 py312-pytest
+            # coverage needs the sqlite3 module, a package of its own
+            install: sudo pkg install -y python3 py312-pytest py312-sqlite3
           - os: openbsd
             version: "8.0"
-            install: sudo pkg_add python%3 py3-test
+            install: sudo pkg_add python%3 py3-test py3-pip
           - os: netbsd
             version: "11.0"
             install: >-
-              sudo pkgin -y install python312 py312-test &&
+              sudo pkgin -y install python312 py312-test py312-pip &&
               sudo ln -s /usr/pkg/bin/python3.12 /usr/pkg/bin/python3
     steps:
       - uses: actions/checkout@v7
@@ -113,9 +136,29 @@ jobs:
       - name: Install pytest
         shell: cpa.sh {0}
         run: ${{ matrix.install }}
+      - name: Install pytest-cov
+        shell: cpa.sh {0} --environment-variables COVERAGE_PIP
+        run: |
+          python3 -m venv --system-site-packages "$HOME/venv"
+          "$HOME/venv/bin/pip" install $COVERAGE_PIP
       - name: Run tests
         shell: cpa.sh {0}
-        run: ./check
+        run: |
+          # each step is a new session, set PATH again
+          PATH="$HOME/venv/bin:$PATH"
+          export PATH
+          # the data goes back from the VM to the runner after the
+          # step, so it has to be in the workspace
+          mkdir -p coverage-data
+          ./coverage --data-file coverage-data/${{ matrix.os }}
+      - name: Upload coverage data
+        # Not when the tests failed: the files do not come back from
+        # the VM after a step which failed.
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage-data/
+          if-no-files-found: error
 
   test-macos:
     runs-on: macos-latest
@@ -127,8 +170,19 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install .[test]
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - name: Install pytest-cov
+        run: pip install $COVERAGE_PIP
       - name: Run tests
-        run: ./check
+        run: |
+          mkdir -p coverage-data
+          ./coverage --data-file coverage-data/macos
+      - name: Upload coverage data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-macos
+          path: coverage-data/
+          if-no-files-found: error
 
   test-windows:
     runs-on: windows-latest
@@ -139,10 +193,66 @@ jobs:
           python-version: "3.x"
       - name: Install pytest
         run: pip install ".[test]"
+      - name: Install pytest-cov
+        shell: bash
+        run: pip install $COVERAGE_PIP
       # cmdspecs finds a different sh from PowerShell and from Git Bash,
       # and the scripts get a different PATH, so test both.
       - name: Run tests from PowerShell
         run: python -m pytest
+      # The coverage is measured only from Git Bash, ./coverage is a
+      # shell script.
       - name: Run tests from Git Bash
         shell: bash
-        run: ./check
+        run: |
+          mkdir -p coverage-data
+          ./coverage --data-file coverage-data/windows
+      - name: Upload coverage data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-windows
+          path: coverage-data/
+          if-no-files-found: error
+
+  coverage:
+    # The report of one system misses the lines of the others, the
+    # combination lists the lines which no system ran. It is
+    # information only, no percentage fails the job.
+    needs: [test, test-bsd, test-macos, test-windows]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - name: Install coverage
+        run: pip install $COVERAGE_PIP
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: coverage-data
+          merge-multiple: true
+      - name: Combine the coverage data
+        # The data has the path of cmdspecs on each runner, [paths]
+        # maps them to the one here.
+        run: |
+          rc="$RUNNER_TEMP/coveragerc"
+          cat > "$rc" << RC
+          [run]
+          data_file = $RUNNER_TEMP/.coverage
+          [paths]
+          source =
+              $GITHUB_WORKSPACE/
+              /home/runner/work/cmdspecs/cmdspecs/
+              /Users/runner/work/cmdspecs/cmdspecs/
+              D:/a/cmdspecs/cmdspecs/
+              C:/a/cmdspecs/cmdspecs/
+          RC
+          ls -l coverage-data
+          coverage combine --rcfile="$rc" --keep --debug=pathmap \
+            coverage-data/*
+          coverage report --rcfile="$rc" -m --format=markdown \
+            >> "$GITHUB_STEP_SUMMARY"
+          coverage report --rcfile="$rc" -m
