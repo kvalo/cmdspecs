@@ -984,6 +984,21 @@ def test_timeout_kills_script_which_ignores_sigterm(tmp_path):
         '1 failed in 0.00s', timeout='0.5'), returncode=EXIT_FAILED)
 
 
+def test_timeout_lets_script_clean_up(tmp_path):
+    # A script which times out gets SIGTERM before it is killed, so that
+    # its trap can clean up, also on Windows. The sh may report on stderr
+    # that the sleep was killed, so stderr is not compared.
+    write_script(tmp_path / 'foo.script',
+                 'trap "echo cleaned up; exit 1" TERM\necho started\n'
+                 'while :; do sleep 1; done\n')
+    result = run_cmdspecs('-o', '0.5', '.', cwd=tmp_path)
+    assert result.returncode == EXIT_FAILED, result.stdout + result.stderr
+    assert 'FAILED foo - timed out after 0.5 seconds' in \
+        result.stdout.splitlines()
+    assert (tmp_path / 'foo.stdout-actual').read_text() == \
+        'started\ncleaned up\n'
+
+
 @needs_exec_bit
 @pytest.mark.parametrize('hook', ['setup', 'foo.setup', 'foo.teardown',
                                   'teardown'])

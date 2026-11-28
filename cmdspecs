@@ -53,7 +53,7 @@ EXIT_USAGE = 4
 EXIT_NO_TESTS = 5
 
 # Seconds between the SIGTERM and the SIGKILL sent to a script which
-# timed out, or on Windows the Ctrl-Break and the end of its job.
+# timed out, or on Windows between the SIGTERM and the end of its job.
 KILL_GRACE = 2
 
 # Seconds to wait on Windows for the processes of a killed job to exit.
@@ -335,11 +335,16 @@ class WindowsProcessGroup(ProcessGroup):
     Windows, so taskkill /T misses them, but they stay in the job
     object of the script, which can be killed as a whole.
 
+    sh is the sh which runs the script, and pid_file the file to which
+    it writes its pid, for terminate().
+
     '''
 
-    def __init__(self, args, **kwargs):
+    def __init__(self, args, sh=None, pid_file=None, **kwargs):
         import ctypes
         self.kernel32 = windows_kernel32()
+        self.sh = sh
+        self.pid_file = pid_file
         self.job = self.kernel32.CreateJobObjectW(None, None)
         if not self.job:
             raise ctypes.WinError(ctypes.get_last_error())
@@ -359,10 +364,38 @@ class WindowsProcessGroup(ProcessGroup):
             self.kernel32.CloseHandle(process)
 
     def terminate(self):
-        # Ctrl-Break is the nearest thing to SIGTERM. It can't be sent
-        # if cmdspecs has no console.
-        with contextlib.suppress(OSError):
-            self.proc.send_signal(signal.CTRL_BREAK_EVENT)
+        '''Send SIGTERM to the script and to what it started.
+
+        Windows has no signals. MSYS turns a Ctrl-Break into one only
+        for a process whose controlling tty is a console, which a script
+        is not, and otherwise the Ctrl-Break ends the processes at once,
+        without running a trap. But an MSYS process can send a real
+        SIGTERM, so let sh send it to the MSYS process group of the
+        script. A native program which the script runs is ended by MSYS.
+
+        The MSYS pid is not the Windows pid. The sh which runs the
+        script writes it to pid_file before it execs the script, and it
+        is also the id of the process group, as MSYS starts a process
+        whose parent is native in a session of its own. Without the pid
+        the script has not started yet and has no trap to run, so kill
+        it at once.
+
+        '''
+        pgid = cat(self.pid_file).strip() if self.pid_file else ''
+        if not pgid.isdigit():
+            self.kill()
+            return
+        # A process group of its own keeps a Ctrl-C of the console from
+        # sh. If sh fails, the job is killed after the grace anyway, and
+        # an exception here would leave the script running.
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            subprocess.run([self.sh, '-c', 'kill -s TERM -- "-$1"', 'sh',
+                            pgid],
+                           stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL,
+                           creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                           timeout=KILL_GRACE)
 
     def wait(self, timeout=None):
         '''Wait for the script to exit and return its exit code.
@@ -831,18 +864,25 @@ class CommandTester:
                 'needs the sh of Git for Windows or MSYS2')
         return self.sh
 
+    @property
+    def pid_file(self):
+        '''Return the file for the pid of a script on Windows.'''
+        return os.path.join(self.tempdir, 'pid')
+
     def script_command(self, script_name):
         '''Return the command which runs a script.
 
         Unix runs the interpreter named on the #! line of a script.
         Windows ignores that line, but the exec of the sh in Git for
         Windows and MSYS2 handles it like Unix does, so let that sh
-        run the script.
+        run the script. Before that the sh writes its MSYS pid to
+        pid_file, for WindowsProcessGroup.terminate().
 
         '''
         if sys.platform != 'win32':
             return [script_name]
-        return [self.find_sh(), '-c', 'exec "$0"', script_name]
+        return [self.find_sh(), '-c', 'echo $$ >"$1"; exec "$0"',
+                script_name, self.pid_file]
 
     def run_process(self, script_name, test, kill_leftovers=False,
                     **kwargs):
@@ -861,7 +901,9 @@ class CommandTester:
 
         '''
         if sys.platform == 'win32':
-            group_class = WindowsProcessGroup
+            group_class = functools.partial(
+                WindowsProcessGroup, sh=self.find_sh(),
+                pid_file=self.pid_file)
         else:
             group_class = ProcessGroup
         # An interrupt while the script starts would leave it running
@@ -894,6 +936,10 @@ class CommandTester:
             raise
         finally:
             group.close()
+            if sys.platform == 'win32':
+                # A pid left behind could later signal the group of
+                # another script, such as a daemon of setup_once.
+                remove(self.pid_file)
 
     def kill_group(self, group):
         '''Kill a script with what it started and wait for it to exit.'''

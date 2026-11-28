@@ -28,6 +28,10 @@ cmdspecs was forked.
 - On Windows, Ctrl-C in a console did not stop cmdspecs while a
   script ran, but only when the script had exited by itself, and
   never if the script hung.
+- On Windows, a script which timed out or was interrupted was ended
+  at once without running its `trap`, or, when cmdspecs had no
+  console, only after two seconds. Now it gets `SIGTERM` like on
+  other systems.
 
 ## [0.35.0] - 2026-11-23
 

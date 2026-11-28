@@ -65,13 +65,12 @@ left out:
   longer than that to start anything, so it has not been seen. Closing
   the gap needs the script to start suspended, which `subprocess`
   can't do.
-- A script can't clean up when it times out. On a timeout it gets a
-  Ctrl-Break instead of `SIGTERM`, and the `sh` of Git for Windows
-  exits at once without running its `trap`, with the status of an
-  unhandled Ctrl-C (0xC000013A). Without a console, the Ctrl-Break
-  can't be sent at all, and the script is killed after `KILL_GRACE`.
-  A gentler stop would need a way to signal an MSYS process from a
-  native program, which `subprocess` does not have.
+- A native Windows program which a script runs can't clean up when
+  the script times out. The script gets `SIGTERM` from an MSYS `sh`,
+  and MSYS ends a native program with `TerminateProcess()` instead.
+  A Ctrl-Break would let the program clean up, but it ends the MSYS
+  processes at once, as MSYS turns it into a signal only for a
+  process whose controlling tty is a console.
 
 Not tested on Windows:
 

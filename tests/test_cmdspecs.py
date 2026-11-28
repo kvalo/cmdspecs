@@ -206,12 +206,15 @@ def test_script_command_runs_script_directly_on_unix(monkeypatch):
 
 def test_script_command_uses_sh_on_windows(monkeypatch):
     # Windows ignores the #! line, so sh runs the script and its exec
-    # handles the #! line.
+    # handles the #! line. Before that sh writes its pid for terminate().
     monkeypatch.setattr(cmdspecs.sys, 'platform', 'win32')
     monkeypatch.setattr(cmdspecs.shutil, 'which',
                         lambda name: r'C:\Git\bin\sh.exe')
-    assert cmdspecs.CommandTester().script_command(r'd\foo.script') == \
-        [r'C:\Git\bin\sh.exe', '-c', 'exec "$0"', r'd\foo.script']
+    tester = cmdspecs.CommandTester()
+    tester.tempdir = 'temp'
+    assert tester.script_command(r'd\foo.script') == \
+        [r'C:\Git\bin\sh.exe', '-c', 'echo $$ >"$1"; exec "$0"',
+         r'd\foo.script', os.path.join('temp', 'pid')]
 
 
 def test_missing_sh_on_windows_is_one_error(monkeypatch, capsys):
@@ -339,12 +342,16 @@ def test_run_test_kills_leftovers_of_script_on_windows(monkeypatch, tmp_path):
     killed = []
 
     class Group(cmdspecs.ProcessGroup):
+        def __init__(self, args, sh, pid_file, **kwargs):
+            super().__init__(args, **kwargs)
+
         def kill(self):
             killed.append(self.proc.args[0])
             super().kill()
 
     monkeypatch.setattr(cmdspecs.sys, 'platform', 'win32')
     monkeypatch.setattr(cmdspecs, 'WindowsProcessGroup', Group)
+    monkeypatch.setattr(cmdspecs.CommandTester, 'find_sh', lambda self: 'sh')
     monkeypatch.setattr(cmdspecs.CommandTester, 'script_command',
                         lambda self, script_name: [script_name])
     make_script(tmp_path, 'foo', '')
@@ -557,6 +564,41 @@ def end_group(group):
     group.kill()
     group.proc.wait(timeout=30)
     group.close()
+
+
+@windows_only
+def test_windows_group_terminate_runs_trap_of_script(tmp_path):
+    # terminate() sends SIGTERM through MSYS to the process group whose
+    # id sh wrote, so that the trap of the script runs.
+    sh = cmdspecs.CommandTester().find_sh()
+    pid_file = tmp_path / 'pid'
+    group = cmdspecs.WindowsProcessGroup(
+        [sh, '-c', 'trap "exit 3" TERM; echo $$ >"$1"; '
+         'while :; do sleep 1; done', 'sh', str(pid_file)],
+        sh=sh, pid_file=str(pid_file))
+    try:
+        deadline = time.monotonic() + 30
+        while not cmdspecs.cat(str(pid_file)).strip():
+            assert time.monotonic() < deadline, 'sh wrote no pid'
+            time.sleep(0.1)
+        group.terminate()
+        assert group.proc.wait(timeout=30) == 3
+    finally:
+        end_group(group)
+
+
+@windows_only
+def test_windows_group_terminate_without_pid_kills_at_once(tmp_path):
+    # Without the pid sh has not started the script, which has no trap
+    # yet, so terminate() kills it at once rather than after the grace.
+    group = cmdspecs.WindowsProcessGroup(
+        sleeper(30), sh=cmdspecs.CommandTester().find_sh(),
+        pid_file=str(tmp_path / 'pid'))
+    try:
+        group.terminate()
+        assert group.proc.wait(timeout=1) == 1
+    finally:
+        end_group(group)
 
 
 @windows_only
