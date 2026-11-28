@@ -9,7 +9,7 @@ set -eu
 
 flake8 cmdspecs tests/*.py
 
-shellcheck check lint \
+shellcheck check coverage lint \
     tests/specs/*/*.script tests/specs/*/*.setup \
     tests/specs/*/*.teardown \
     tests/specs/*/setup tests/specs/*/setup_once \

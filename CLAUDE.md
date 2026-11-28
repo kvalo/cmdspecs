@@ -77,6 +77,13 @@ like `v0.34.0`.
 - Tests use pytest (`pip install .[test]`). `./check` runs
   `python3 -m pytest` and passes its arguments through, e.g.
   `./check -k echo` or `./check -x`.
+- `./coverage [./check options]` runs the tests with pytest-cov
+  (`pip install .[coverage]`) and prints the lines of `cmdspecs`
+  which no test ran, also counting the subprocess runs of
+  `tests/test_specs.py`. Its coverage config is a temp file, as
+  `cmdspecs` has no `.py` extension for `--cov` to name. The Windows
+  code shows as missed on other systems. There is no minimum
+  coverage and CI does not run it.
 - `tests/test_cmdspecs.py` has the unit tests. `tests/test_specs.py`
   runs the `cmdspecs` script as a subprocess on each spec dir in
   `tests/specs/`. It copies each dir to `tmp_path` first so the repo

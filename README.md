@@ -174,6 +174,17 @@ example specs in `tests/specs`. It passes its arguments on to pytest,
 so `./check -x` stops at the first failure and `./check -k echo` runs
 only the tests with `echo` in their name.
 
+`./coverage` runs the tests like `./check` and prints which lines of
+`cmdspecs` they did not run. It needs
+[pytest-cov](https://pytest-cov.readthedocs.io):
+
+```bash
+pip install .[coverage]
+./coverage
+```
+
+The lines which only run on Windows show as missed on other systems.
+
 `./lint` checks the code and the documentation:
 
 ```bash

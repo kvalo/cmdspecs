@@ -1,0 +1,43 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Run the tests and print which lines of cmdspecs they did not run.
+# Arguments are passed to ./check. Requires pytest-cov.
+
+set -eu
+
+if ! python3 -c 'import pytest_cov' 2> /dev/null; then
+    echo "coverage: pytest-cov is missing" >&2
+    exit 1
+fi
+
+srcdir=$(cd "$(dirname "$0")" && pwd)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# cmdspecs has no .py extension, so --cov can't name it as a source,
+# but include can.
+cat > "$tmp/rc" << RC
+[run]
+branch = True
+data_file = $tmp/.coverage
+include = $srcdir/cmdspecs
+# Where coverage has no compiled tracer, as on FreeBSD, every process
+# would warn about it on stderr, which the tests compare.
+disable_warnings = no-ctracer
+RC
+
+# tests/test_specs.py runs cmdspecs as a new process. pytest-cov
+# before 7.0 measures those by itself, from 7.0 on coverage does it
+# with patch.
+if python3 -c 'import sys, pytest_cov
+sys.exit(int(pytest_cov.__version__.split(".")[0]) < 7)'; then
+    echo "patch = subprocess" >> "$tmp/rc"
+fi
+
+status=0
+"$srcdir/check" --cov --cov-config="$tmp/rc" --cov-report=term-missing \
+    "$@" || status=$?
+exit $status
