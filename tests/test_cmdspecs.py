@@ -9,6 +9,7 @@ import importlib.util
 import io
 import os
 import re
+import signal
 import sys
 import time
 from pathlib import Path
@@ -346,6 +347,47 @@ def test_run_test_kills_leftovers_of_script_on_windows(monkeypatch, tmp_path):
     write_script(tmp_path / 'foo.setup', '#!/bin/sh\n')
     assert run_single_test(tmp_path) == []
     assert killed == [str(tmp_path / 'foo.script')]
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='SIGINT to itself stops the run on Windows')
+def test_interrupt_while_script_starts_kills_it(monkeypatch, tmp_path):
+    # An interrupt which comes right after the script has started, before
+    # cmdspecs waits for it, still kills the script with what it started.
+    # The group sends it, so it always comes at that point.
+    killed = []
+
+    class Group(cmdspecs.ProcessGroup):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            os.kill(os.getpid(), signal.SIGINT)
+
+        def kill(self):
+            killed.append(self.proc.args[0])
+            super().kill()
+
+    monkeypatch.setattr(cmdspecs, 'ProcessGroup', Group)
+    make_script(tmp_path, 'foo', 'sleep 60\n')
+    with pytest.raises(KeyboardInterrupt):
+        run_single_test(tmp_path)
+    assert killed
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='SIGINT to itself stops the run on Windows')
+def test_interrupt_while_script_fails_to_start_is_kept(monkeypatch, tmp_path):
+    # An interrupt while a script fails to start stops the run, and is
+    # not lost in the error of the start.
+    def start(*args, **kwargs):
+        os.kill(os.getpid(), signal.SIGINT)
+        raise OSError('cannot start')
+
+    monkeypatch.setattr(cmdspecs, 'ProcessGroup', start)
+    make_script(tmp_path, 'foo', '')
+    with pytest.raises(KeyboardInterrupt):
+        run_single_test(tmp_path)
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):

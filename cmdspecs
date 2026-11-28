@@ -784,9 +784,24 @@ class CommandTester:
             group_class = WindowsProcessGroup
         else:
             group_class = ProcessGroup
-        group = group_class(self.script_command(script_name),
-                            env=self.add_to_env(test), **kwargs)
+        # An interrupt while the script starts would leave it running
+        # with what it starts, as there is no group to kill yet. Hold
+        # it until the try below, which kills the group.
+        interrupted = []
+        handler = signal.signal(signal.SIGINT,
+                                lambda *args: interrupted.append(True))
         try:
+            group = group_class(self.script_command(script_name),
+                                env=self.add_to_env(test), **kwargs)
+        except BaseException:
+            signal.signal(signal.SIGINT, handler)
+            if interrupted:
+                raise KeyboardInterrupt
+            raise
+        try:
+            signal.signal(signal.SIGINT, handler)
+            if interrupted:
+                raise KeyboardInterrupt
             returncode = group.proc.wait(timeout=self.timeout)
             if kill_leftovers and sys.platform == 'win32':
                 group.kill()

@@ -16,6 +16,11 @@ cmdspecs was forked.
 
 ## [Unreleased]
 
+### Fixed
+
+- An interrupt such as Ctrl-C right when a script started left the
+  script and what it started running after cmdspecs had exited.
+
 ## [0.35.0] - 2026-11-23
 
 ### Added
