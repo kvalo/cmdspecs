@@ -13,6 +13,18 @@ if ! python3 -c 'import pytest_cov' 2> /dev/null; then
     exit 1
 fi
 
+# In the Git Bash of Windows the paths are MSYS paths (/d/a/...), but
+# Python is a Windows program and coverage compares the paths which it
+# gets with D:/a/... of Python.
+case "$(uname -s)" in
+    MINGW* | MSYS*)
+        native() { cygpath -m "$1"; }
+        ;;
+    *)
+        native() { printf '%s\n' "$1"; }
+        ;;
+esac
+
 srcdir=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -22,8 +34,8 @@ trap 'rm -rf "$tmp"' EXIT
 cat > "$tmp/rc" << RC
 [run]
 branch = True
-data_file = $tmp/.coverage
-include = $srcdir/cmdspecs
+data_file = $(native "$tmp/.coverage")
+include = $(native "$srcdir/cmdspecs")
 # Where coverage has no compiled tracer, as on FreeBSD, every process
 # would warn about it on stderr, which the tests compare.
 disable_warnings = no-ctracer
@@ -38,6 +50,6 @@ sys.exit(int(pytest_cov.__version__.split(".")[0]) < 7)'; then
 fi
 
 status=0
-"$srcdir/check" --cov --cov-config="$tmp/rc" --cov-report=term-missing \
+"$srcdir/check" --cov --cov-config="$(native "$tmp/rc")" --cov-report=term-missing \
     "$@" || status=$?
 exit $status
