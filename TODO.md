@@ -65,13 +65,20 @@ left out:
   longer than that to start anything, so it has not been seen. Closing
   the gap needs the script to start suspended, which `subprocess`
   can't do.
+- A script can't clean up when it times out. On a timeout it gets a
+  Ctrl-Break instead of `SIGTERM`, and the `sh` of Git for Windows
+  exits at once without running its `trap`, with the status of an
+  unhandled Ctrl-C (0xC000013A). Without a console, the Ctrl-Break
+  can't be sent at all, and the script is killed after `KILL_GRACE`.
+  A gentler stop would need a way to signal an MSYS process from a
+  native program, which `subprocess` does not have.
 
 Not tested on Windows:
 
-- Ctrl-C from a console, as CI has none, and the tests where a script
-  interrupts cmdspecs with `kill -INT $PPID` are skipped there. A test
-  could start cmdspecs in a console of its own and send it
-  `CTRL_C_EVENT`.
+- The interrupt tests other than the Ctrl-C through the console of
+  `tests/console`, such as `--keep` on an interrupt, as a script
+  can't interrupt cmdspecs with `kill -INT $PPID` there. They could
+  use `tests/console` too.
 - Colors in a console, which need VT processing, and in mintty, where
   `isatty()` is false.
 - A symlink to a directory which a test leaves in the work area,

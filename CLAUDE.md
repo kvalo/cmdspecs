@@ -140,6 +140,11 @@ like `v0.34.0`.
   Their `Kernel32` wrapper passes calls through to the real kernel32
   and replaces only the functions a test makes fail, with `failing()`.
   Those tests can only be tried by pushing to `staging`.
+- `tests/console [--ctrl-c-when FILE] COMMAND...` runs a command in a
+  console of its own on Windows, prints what the console shows, and
+  with `--ctrl-c-when` sends a real Ctrl-C through the console once
+  FILE exists. Use it for what needs a real console, as a script
+  can't send cmdspecs a SIGINT there.
 - A stream which a test gives cmdspecs in place of stdout needs
   `newline='\n'`, as on Windows a `TextIOWrapper` writes CRLF.
 

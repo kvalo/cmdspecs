@@ -275,6 +275,17 @@ On a timeout or an interrupt, a script and its child processes get a
 Ctrl-Break instead of
 .BR SIGTERM ,
 and are killed if they are still running two seconds later.
+The
+.B sh
+of Git for Windows does not run a
+.B trap
+for the Ctrl-Break but exits at once, so on Windows a script can't
+clean up when it times out.
+If
+.B cmdspecs
+has no console, for example when it is started as a detached
+process, the Ctrl-Break can't be sent, and the script is killed only
+after the two seconds.
 .SH OPTIONS
 .TP
 .BR \-t ", " \-\-test =\fITEST\fR
