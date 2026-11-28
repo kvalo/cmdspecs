@@ -125,15 +125,23 @@ like `v0.34.0`.
   files. You can run a spec by hand, e.g.
   `./cmdspecs tests/specs/echo`.
 - CI also runs the tests on Python 3.10 to the newest release, and
-  on Linux arm64, macOS, Windows, FreeBSD and OpenBSD, where there is
-  no way to try them locally.
+  on Linux arm64, Alpine, macOS, Windows, FreeBSD, OpenBSD and
+  NetBSD, where there is no way to try them locally.
   Don't use syntax newer than Python 3.10. `.gitattributes` checks
   out all text files with LF, also on Windows, so that the specs
   match. Keep new tests portable: run cmdspecs with
   `sys.executable`, write the files of a test dir with
   `newline='\n'`, and expect the paths in cmdspecs output with
   `native()` from `tests/test_specs.py`. Skip a test which can't work
-  on Windows with `skipif(sys.platform == 'win32')` and a reason.
+  on Windows with `skipif(sys.platform == 'win32')` and a reason, but
+  only when the code it runs is covered by the other systems.
+- The Windows-only code (`WindowsProcessGroup`, `windows_kernel32()`)
+  is tested with `@windows_only` tests in `tests/test_cmdspecs.py`.
+  Their `Kernel32` wrapper passes calls through to the real kernel32
+  and replaces only the functions a test makes fail, with `failing()`.
+  Those tests can only be tried by pushing to `staging`.
+- A stream which a test gives cmdspecs in place of stdout needs
+  `newline='\n'`, as on Windows a `TextIOWrapper` writes CRLF.
 
 ## Documentation
 

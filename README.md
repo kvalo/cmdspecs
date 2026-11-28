@@ -202,9 +202,19 @@ To run it, install these tools first. They are only needed for
 - `groff` for checking the manual page for warnings
 - `yamllint` for the GitHub workflow files (optional, skipped if
   missing)
+- `reuse` for the license and copyright headers (optional, skipped
+  if missing)
 
-GitHub Actions runs both `./check` and `./lint` for every push, and
-`./check` also on macOS, Windows, FreeBSD, OpenBSD and NetBSD.
+`pip install .[lint]` installs flake8, shellcheck and reuse. mdl is
+a Ruby gem (`gem install mdl`).
+
+GitHub Actions runs the tests for every push on Linux (x86-64, arm64
+and Alpine), on every supported Python version, and on macOS,
+Windows, FreeBSD, OpenBSD and NetBSD. It runs `./lint` on Linux.
+Linux, macOS, the BSDs and Windows measure the coverage, and a CI job
+combines the results. That job fails unless the tests together run
+every line and branch of `cmdspecs`, so a change to `cmdspecs` needs
+tests which run the new code on at least one of these systems.
 
 ## Project
 
