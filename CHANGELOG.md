@@ -20,6 +20,8 @@ cmdspecs was forked.
 
 - An interrupt such as Ctrl-C right when a script started left the
   script and what it started running after cmdspecs had exited.
+- A second interrupt while a script had time to exit after `SIGTERM`
+  left it running after cmdspecs had exited, if it trapped `SIGTERM`.
 - When the reader of the output went away, as with `cmdspecs | head`,
   cmdspecs printed an "Invalid argument" error and exited with 120
   on Windows. Now it exits with 1 without messages, as on other

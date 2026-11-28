@@ -385,6 +385,31 @@ def test_interrupt_while_script_starts_kills_it(monkeypatch, tmp_path):
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
 
+def test_second_interrupt_while_script_gets_time_to_exit_kills_it():
+    # A second interrupt while a script has time to exit after SIGTERM
+    # still kills it, as a script which traps SIGTERM would otherwise be
+    # left running.
+    calls = []
+
+    class Proc:
+        def wait(self, timeout=None):
+            calls.append('wait')
+            raise KeyboardInterrupt
+
+    class Group:
+        proc = Proc()
+
+        def terminate(self):
+            calls.append('terminate')
+
+        def kill(self):
+            calls.append('kill')
+
+    with pytest.raises(KeyboardInterrupt):
+        cmdspecs.CommandTester().kill_group(Group())
+    assert calls == ['terminate', 'wait', 'kill']
+
+
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason='SIGINT to itself stops the run on Windows')
 def test_interrupt_while_script_fails_to_start_is_kept(monkeypatch, tmp_path):

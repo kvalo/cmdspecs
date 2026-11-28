@@ -942,15 +942,21 @@ class CommandTester:
                 remove(self.pid_file)
 
     def kill_group(self, group):
-        '''Kill a script with what it started and wait for it to exit.'''
-        group.terminate()
+        '''Kill a script with what it started and wait for it to exit.
+
+        Kill it also when a second interrupt comes while it has time to
+        exit, as a script which traps SIGTERM would be left running.
+
+        '''
         try:
+            group.terminate()
             group.proc.wait(timeout=KILL_GRACE)
         except subprocess.TimeoutExpired:
+            pass
+        finally:
+            # Also what the script left running if it exited in time.
             group.kill()
-            group.proc.wait()
-        # Also kill what the script left running after it exited.
-        group.kill()
+        group.proc.wait()
 
     def run_script(self, script_name, test=None):
         '''Run a setup or teardown script, if there is one.
