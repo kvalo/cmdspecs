@@ -90,8 +90,10 @@ like `v0.34.0`.
   the PowerShell run stay as they are, so the tests also run without
   the measurement. The `coverage` job combines the data, and its
   report, in the log and in the summary of the job, lists the lines
-  which no system ran. It is information only, no percentage fails
-  the job. `COVERAGE_PIP` pins the versions of pytest-cov and
+  which no system ran. The job fails if the combined coverage, lines
+  and branches, is below 100%, so new code needs a test on at least
+  one system. Restructure code which no test can reach rather than
+  excluding it. `COVERAGE_PIP` pins the versions of pytest-cov and
   coverage for every job.
 - `tests/test_cmdspecs.py` has the unit tests. `tests/test_specs.py`
   runs the `cmdspecs` script as a subprocess on each spec dir in

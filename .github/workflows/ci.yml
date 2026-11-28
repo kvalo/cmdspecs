@@ -217,8 +217,9 @@ jobs:
 
   coverage:
     # The report of one system misses the lines of the others, the
-    # combination lists the lines which no system ran. It is
-    # information only, no percentage fails the job.
+    # combination lists the lines which no system ran. The job fails
+    # if the combined coverage is below 100%. A test job which failed
+    # may have uploaded no data, and then this job fails too.
     needs: [test, test-bsd, test-macos, test-windows]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
@@ -255,4 +256,4 @@ jobs:
             coverage-data/*
           coverage report --rcfile="$rc" -m --format=markdown \
             >> "$GITHUB_STEP_SUMMARY"
-          coverage report --rcfile="$rc" -m
+          coverage report --rcfile="$rc" -m --fail-under=100
