@@ -7,7 +7,7 @@
 
 set -eu
 
-flake8 cmdspecs tests/*.py
+flake8 cmdspecs tests/*.py tests/console
 
 shellcheck check coverage lint \
     tests/specs/*/*.script tests/specs/*/*.setup \

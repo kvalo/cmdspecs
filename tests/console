@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Kalle Valo
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Run a command in a console of its own on Windows, as in a window of
+# cmd or PowerShell, and print what the console shows when it has
+# exited. The exit status is the exit status of the command.
+#
+# With --ctrl-c-when FILE the console gets a real Ctrl-C, as from the
+# keyboard, once FILE exists, for example when a script of a test has
+# created it. It goes to every process in the console.
+#
+# Only for Windows, the other systems have no console like this. The
+# same technique is used in the tests of vrfdir.
+#
+# usage: console [--ctrl-c-when FILE] COMMAND [ARGS...]
+
+import ctypes
+import msvcrt
+import os
+import subprocess
+import sys
+import time
+from ctypes import wintypes
+
+EXIT_USAGE = 64
+EXIT_NO_CTRL_C = 70
+EXIT_NO_CONSOLE = 71
+
+CTRL_C_EVENT = 0
+
+# So wide that no line wraps, and the console shows the lines exactly
+# as they were written.
+SCREEN_WIDTH = 250
+SCREEN_HEIGHT = 500
+
+# How long to wait for FILE and then for the command, in seconds.
+TIMEOUT = 30
+
+kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+
+class COORD(ctypes.Structure):
+    _fields_ = [('X', wintypes.SHORT), ('Y', wintypes.SHORT)]
+
+
+class SMALL_RECT(ctypes.Structure):
+    _fields_ = [('Left', wintypes.SHORT), ('Top', wintypes.SHORT),
+                ('Right', wintypes.SHORT), ('Bottom', wintypes.SHORT)]
+
+
+class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
+    _fields_ = [('dwSize', COORD), ('dwCursorPosition', COORD),
+                ('wAttributes', wintypes.WORD), ('srWindow', SMALL_RECT),
+                ('dwMaximumWindowSize', COORD)]
+
+
+kernel32.SetConsoleScreenBufferSize.argtypes = [wintypes.HANDLE, COORD]
+kernel32.GetConsoleScreenBufferInfo.argtypes = [
+    wintypes.HANDLE, ctypes.POINTER(CONSOLE_SCREEN_BUFFER_INFO)]
+kernel32.ReadConsoleOutputCharacterW.argtypes = [
+    wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, COORD,
+    ctypes.POINTER(wintypes.DWORD)]
+kernel32.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p, wintypes.BOOL]
+kernel32.GenerateConsoleCtrlEvent.argtypes = [wintypes.DWORD,
+                                              wintypes.DWORD]
+
+
+def fail(message, status):
+    sys.stderr.write('console: %s\n' % message)
+    sys.exit(status)
+
+
+def check(ok, what):
+    if not ok:
+        fail('%s failed: %s' % (what, ctypes.FormatError(
+            ctypes.get_last_error())), EXIT_NO_CONSOLE)
+
+
+def read_screen(handle):
+    '''Return the lines of the console, without trailing blanks.'''
+    info = CONSOLE_SCREEN_BUFFER_INFO()
+    check(kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)),
+          'GetConsoleScreenBufferInfo')
+    width = info.dwSize.X
+    lines = []
+    for y in range(info.dwCursorPosition.Y + 1):
+        buf = ctypes.create_unicode_buffer(width)
+        read = wintypes.DWORD()
+        check(kernel32.ReadConsoleOutputCharacterW(
+            handle, buf, width, COORD(0, y), ctypes.byref(read)),
+            'ReadConsoleOutputCharacterW')
+        lines.append(buf[:read.value].rstrip(' '))
+    while lines and lines[-1] == '':
+        lines.pop()
+    return lines
+
+
+def main():
+    args = sys.argv[1:]
+    ctrl_c_when = None
+    if args[:1] == ['--ctrl-c-when'] and len(args) >= 2:
+        ctrl_c_when = args[1]
+        args = args[2:]
+    if not args:
+        fail('usage: console [--ctrl-c-when FILE] COMMAND [ARGS...]',
+             EXIT_USAGE)
+
+    # stdout stays what it was, only the command writes to the console
+    out = os.fdopen(os.dup(sys.stdout.fileno()), 'w', encoding='utf-8',
+                    newline='\n')
+
+    # A console of our own, which the command shares.
+    kernel32.FreeConsole()
+    check(kernel32.AllocConsole(), 'AllocConsole')
+    conout = open('CONOUT$', 'w')
+    conin = open('CONIN$', 'r')
+    handle = msvcrt.get_osfhandle(conout.fileno())
+    check(kernel32.SetConsoleScreenBufferSize(
+        handle, COORD(SCREEN_WIDTH, SCREEN_HEIGHT)),
+        'SetConsoleScreenBufferSize')
+
+    # The command inherits whether Ctrl-C is ignored, so it must not
+    # be ignored when the command starts.
+    check(kernel32.SetConsoleCtrlHandler(None, False),
+          'SetConsoleCtrlHandler')
+
+    proc = subprocess.Popen(args, stdin=conin, stdout=conout,
+                            stderr=conout)
+    status = None
+    if ctrl_c_when is not None:
+        deadline = time.monotonic() + TIMEOUT
+        while not os.path.exists(ctrl_c_when):
+            if proc.poll() is not None or time.monotonic() > deadline:
+                status = EXIT_NO_CTRL_C
+                break
+            time.sleep(0.05)
+        else:
+            # The Ctrl-C goes to every process in the console, so
+            # ignore it here.
+            check(kernel32.SetConsoleCtrlHandler(None, True),
+                  'SetConsoleCtrlHandler')
+            check(kernel32.GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0),
+                  'GenerateConsoleCtrlEvent')
+
+    try:
+        returncode = proc.wait(timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        returncode = proc.wait()
+        sys.stderr.write('console: the command did not exit\n')
+
+    for line in read_screen(handle):
+        out.write(line + '\n')
+    out.flush()
+
+    if status == EXIT_NO_CTRL_C:
+        fail('%s did not appear, no Ctrl-C was sent' % ctrl_c_when, status)
+    sys.exit(returncode)
+
+
+if __name__ == '__main__':
+    main()

@@ -24,6 +24,7 @@ import pytest
 TESTS = Path(__file__).resolve().parent
 CMDSPECS = TESTS.parent / 'cmdspecs'
 SPECS = TESTS / 'specs'
+CONSOLE = TESTS / 'console'
 
 # cmdspecs is a script without a .py extension, so load it explicitly.
 _loader = importlib.machinery.SourceFileLoader('cmdspecs', str(CMDSPECS))
@@ -879,6 +880,28 @@ def test_interrupt_kills_children_of_script(tmp_path):
     result = run_cmdspecs(tmp_path, cwd=tmp_path)
     assert result.returncode == EXIT_INTERRUPTED, \
         result.stdout + result.stderr
+    assert_process_ends(int((tmp_path / 'pid').read_text()))
+
+
+@pytest.mark.skipif(sys.platform != 'win32',
+                    reason='needs a console of Windows')
+def test_ctrl_c_in_console_interrupts_and_kills_script(tmp_path):
+    # A real Ctrl-C from the console, as from the keyboard, stops the
+    # run. The script is in a process group of its own and doesn't get
+    # the Ctrl-C, but it is killed with what it started.
+    write_script(tmp_path / 'foo.script',
+                 'sleep 60 &\necho $! > "$SRCDIR/pid"\n'
+                 'touch "$SRCDIR/started"\nwait\n')
+    result = subprocess.run(
+        [sys.executable, str(CONSOLE), '--ctrl-c-when',
+         str(tmp_path / 'started'), sys.executable, str(CMDSPECS),
+         '--color=no', '.'],
+        cwd=tmp_path, env={**os.environ, 'COLUMNS': '200'},
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == EXIT_INTERRUPTED, \
+        result.stdout + result.stderr
+    assert 'cmdspecs: interrupted' in result.stdout.splitlines()
+    assert result.stderr == ''
     assert_process_ends(int((tmp_path / 'pid').read_text()))
 
 

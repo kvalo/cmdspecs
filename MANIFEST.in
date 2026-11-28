@@ -3,5 +3,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 include REUSE.toml CHANGELOG.md TODO.md check coverage lint .flake8 .mdlrc .mdl_style.rb
+include tests/console
 graft tests/specs
 global-exclude *-actual *-diff
