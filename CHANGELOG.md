@@ -25,6 +25,9 @@ cmdspecs was forked.
   on Windows. Now it exits with 1 without messages, as on other
   systems. On every system, a pipe closed just before the work area
   or the timings were shown gave a Python error and exit status 120.
+- On Windows, Ctrl-C in a console did not stop cmdspecs while a
+  script ran, but only when the script had exited by itself, and
+  never if the script hung.
 
 ## [0.35.0] - 2026-11-23
 

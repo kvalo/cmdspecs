@@ -69,6 +69,12 @@ SYNCHRONIZE = 0x00100000
 JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3
 ERROR_MORE_DATA = 234
 
+# For waiting for a script and a Ctrl-C at once on Windows.
+CTRL_C_EVENT = 0
+INFINITE = 0xFFFFFFFF
+WAIT_OBJECT_0 = 0
+WAIT_TIMEOUT = 0x102
+
 
 class ArgumentParser(argparse.ArgumentParser):
 
@@ -279,6 +285,10 @@ class ProcessGroup:
     def kill(self):
         self.signal(signal.SIGKILL)
 
+    def wait(self, timeout=None):
+        '''Wait for the script to exit and return its exit code.'''
+        return self.proc.wait(timeout=timeout)
+
     def close(self):
         pass
 
@@ -303,6 +313,16 @@ def windows_kernel32():
     kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
     kernel32.WaitForSingleObject.restype = wintypes.DWORD
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CreateEventW.argtypes = [wintypes.LPVOID, wintypes.BOOL,
+                                      wintypes.BOOL, wintypes.LPCWSTR]
+    kernel32.CreateEventW.restype = wintypes.HANDLE
+    kernel32.SetEvent.argtypes = [wintypes.HANDLE]
+    kernel32.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p,
+                                               wintypes.BOOL]
+    kernel32.WaitForMultipleObjects.argtypes = [
+        wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE), wintypes.BOOL,
+        wintypes.DWORD]
+    kernel32.WaitForMultipleObjects.restype = wintypes.DWORD
     return kernel32
 
 
@@ -343,6 +363,51 @@ class WindowsProcessGroup(ProcessGroup):
         # if cmdspecs has no console.
         with contextlib.suppress(OSError):
             self.proc.send_signal(signal.CTRL_BREAK_EVENT)
+
+    def wait(self, timeout=None):
+        '''Wait for the script to exit and return its exit code.
+
+        A Ctrl-C does not interrupt Popen.wait() on Windows: Python
+        raises KeyboardInterrupt only after the script has exited, and
+        the script doesn't get the Ctrl-C in its process group of its
+        own. So wait for the script and for a Ctrl-C at once, and
+        handle the Ctrl-C here while waiting.
+
+        '''
+        import ctypes
+        from ctypes import wintypes
+        event = self.kernel32.CreateEventW(None, True, False, None)
+        if not event:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        def on_ctrl(ctrl_type):
+            if ctrl_type != CTRL_C_EVENT:
+                return False
+            self.kernel32.SetEvent(event)
+            return True
+
+        # Without a console there is no Ctrl-C, so a failure to add the
+        # handler is harmless.
+        handler = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)(on_ctrl)
+        self.kernel32.SetConsoleCtrlHandler(handler, True)
+        try:
+            # Popen has the handle of the process, which can't be
+            # reused before Popen has seen the process exit.
+            handles = (wintypes.HANDLE * 2)(int(self.proc._handle), event)
+            millis = INFINITE if timeout is None else \
+                min(int(timeout * 1000), INFINITE - 1)
+            result = self.kernel32.WaitForMultipleObjects(2, handles, False,
+                                                          millis)
+            if result == WAIT_OBJECT_0 + 1:
+                raise KeyboardInterrupt
+            if result == WAIT_TIMEOUT:
+                raise subprocess.TimeoutExpired(self.proc.args, timeout)
+            if result != WAIT_OBJECT_0:
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            self.kernel32.SetConsoleCtrlHandler(handler, False)
+            self.kernel32.CloseHandle(event)
+        return self.proc.wait()
 
     def process_ids(self):
         '''Return the ids of the processes in the job.'''
@@ -817,7 +882,7 @@ class CommandTester:
             signal.signal(signal.SIGINT, handler)
             if interrupted:
                 raise KeyboardInterrupt
-            returncode = group.proc.wait(timeout=self.timeout)
+            returncode = group.wait(timeout=self.timeout)
             if kill_leftovers and sys.platform == 'win32':
                 group.kill()
             return shell_exit_code(returncode)

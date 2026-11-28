@@ -13,6 +13,7 @@ import os
 import re
 import signal
 import stat
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -546,6 +547,87 @@ def test_windows_group_lists_no_processes_when_query_fails(monkeypatch):
         assert group.proc.wait(timeout=30) == 0
     finally:
         group.close()
+
+
+def sleeper(seconds):
+    return [sys.executable, '-c', 'import time; time.sleep(%d)' % seconds]
+
+
+def end_group(group):
+    group.kill()
+    group.proc.wait(timeout=30)
+    group.close()
+
+
+@windows_only
+def test_windows_group_wait_times_out():
+    group = cmdspecs.WindowsProcessGroup(sleeper(30))
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            group.wait(timeout=0.1)
+    finally:
+        end_group(group)
+
+
+@windows_only
+def test_windows_group_wait_is_interrupted_by_ctrl_c(monkeypatch):
+    # The wait has a handler of its own for Ctrl-C, which ends the wait
+    # with KeyboardInterrupt, leaves the other events such as
+    # Ctrl-Break to the other handlers, and is removed after the wait.
+    handlers = []
+
+    def set_handler(handler, add):
+        handlers.append((handler, add))
+        return 1
+
+    def wait(*args):
+        handler = handlers[-1][0]
+        assert not handler(1)
+        assert handler(cmdspecs.CTRL_C_EVENT)
+        return fake.real.WaitForMultipleObjects(*args)
+
+    fake = Kernel32(SetConsoleCtrlHandler=set_handler,
+                    WaitForMultipleObjects=wait)
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    group = cmdspecs.WindowsProcessGroup(sleeper(30))
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            group.wait()
+        assert [add for _, add in handlers] == [True, False]
+        assert handlers[0][0] is handlers[1][0]
+    finally:
+        end_group(group)
+
+
+@windows_only
+def test_windows_group_wait_reports_failed_wait(monkeypatch):
+    def wait_failed(*args):
+        ctypes.set_last_error(6)
+        return 0xFFFFFFFF
+
+    fake = Kernel32(WaitForMultipleObjects=wait_failed)
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    group = cmdspecs.WindowsProcessGroup(sleeper(30))
+    try:
+        with pytest.raises(OSError) as excinfo:
+            group.wait()
+        assert excinfo.value.winerror == 6
+    finally:
+        end_group(group)
+
+
+@windows_only
+def test_windows_group_wait_reports_event_which_cannot_be_created(
+        monkeypatch):
+    fake = Kernel32(CreateEventW=failing(8))
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    group = cmdspecs.WindowsProcessGroup(sleeper(30))
+    try:
+        with pytest.raises(OSError) as excinfo:
+            group.wait()
+        assert excinfo.value.winerror == 8
+    finally:
+        end_group(group)
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):
