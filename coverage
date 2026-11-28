@@ -5,8 +5,30 @@
 #
 # Run the tests and print which lines of cmdspecs they did not run.
 # Arguments are passed to ./check. Requires pytest-cov.
+#
+# --data-file FILE keeps the data of the run in FILE, for combining the
+# data of several systems. When FILE exists, the data of this run is
+# added to it.
 
 set -eu
+
+data_file=
+n=$#
+while [ "$n" -gt 0 ]; do
+    if [ "$1" = "--data-file" ]; then
+        if [ "$n" -lt 2 ]; then
+            echo "coverage: --data-file needs a file name" >&2
+            exit 64
+        fi
+        data_file=$2
+        shift 2
+        n=$((n - 2))
+    else
+        set -- "$@" "$1"
+        shift
+        n=$((n - 1))
+    fi
+done
 
 if ! python3 -c 'import pytest_cov' 2> /dev/null; then
     echo "coverage: pytest-cov is missing" >&2
@@ -49,7 +71,17 @@ sys.exit(int(pytest_cov.__version__.split(".")[0]) < 7)'; then
     echo "patch = subprocess" >> "$tmp/rc"
 fi
 
+# pytest-cov erases the data of earlier runs without --cov-append.
+append=
+if [ -n "$data_file" ] && [ -e "$data_file" ]; then
+    cp "$data_file" "$tmp/.coverage"
+    append=--cov-append
+fi
+
 status=0
-"$srcdir/check" --cov --cov-config="$(native "$tmp/rc")" --cov-report=term-missing \
-    "$@" || status=$?
+"$srcdir/check" --cov --cov-config="$(native "$tmp/rc")" \
+    --cov-report=term-missing $append "$@" || status=$?
+if [ -n "$data_file" ]; then
+    cp "$tmp/.coverage" "$data_file"
+fi
 exit $status

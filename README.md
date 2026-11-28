@@ -184,6 +184,8 @@ pip install .[coverage]
 ```
 
 The lines which only run on Windows show as missed on other systems.
+`./coverage --data-file FILE` keeps the data in `FILE`, and adds the
+data of the run to it when `FILE` exists.
 
 `./lint` checks the code and the documentation:
 
