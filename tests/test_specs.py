@@ -999,3 +999,19 @@ def test_failing_setup_once_skips_later_dirs(tmp_path):
                   'cmdspecs: %s: exited with 1\n' % native('one/setup_once'),
                   EXIT_FAILED)
     assert not (tmp_path / 'two-teardown_once').exists()
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='a closed pipe is no BrokenPipeError on Windows')
+def test_closed_stdout_exits_with_failed_status(tmp_path):
+    # When the reader of the output goes away, as with cmdspecs | head,
+    # cmdspecs exits with status 1 and without a traceback.
+    copy_spec('echo', tmp_path)
+    proc = subprocess.Popen([sys.executable, str(CMDSPECS), 'echo'],
+                            cwd=tmp_path, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    proc.stdout.close()
+    stderr = proc.stderr.read()
+    proc.stderr.close()
+    assert proc.wait() == EXIT_FAILED
+    assert stderr == b''

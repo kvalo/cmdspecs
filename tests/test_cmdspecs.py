@@ -6,10 +6,12 @@
 
 import importlib.machinery
 import importlib.util
+import ctypes
 import io
 import os
 import re
 import signal
+import stat
 import sys
 import time
 from pathlib import Path
@@ -132,11 +134,11 @@ def make_script(tmp_path, name, body):
     write_script(tmp_path / (name + '.script'), '#!/bin/sh\n' + body)
 
 
-def run_single_test(tmp_path):
+def run_single_test(tmp_path, capture=True):
     tester = cmdspecs.CommandTester()
     tester.datadir = str(tmp_path)
     tester.tempdir = str(tmp_path)
-    tester.capture = True
+    tester.capture = capture
     tester.timings = {}
     td = cmdspecs.TestDir()
     td.scan(str(tmp_path))
@@ -388,6 +390,161 @@ def test_interrupt_while_script_fails_to_start_is_kept(monkeypatch, tmp_path):
     with pytest.raises(KeyboardInterrupt):
         run_single_test(tmp_path)
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+def test_run_test_reports_failed_setup_without_capture(tmp_path):
+    # Without capture the output of a failed setup went to the terminal
+    # already, so the error has only the exit code.
+    make_script(tmp_path, 'foo', 'true\n')
+    setup = tmp_path / 'foo.setup'
+    write_script(setup, '#!/bin/sh\nexit 3\n')
+    assert run_single_test(tmp_path, capture=False) == \
+        ['%s: exited with 3' % setup]
+
+
+def test_run_test_reports_stdin_which_cannot_be_opened(tmp_path):
+    # A .stdin which can't be opened is named in the error, and no
+    # output files are left behind.
+    make_script(tmp_path, 'foo', 'cat\n')
+    (tmp_path / 'foo.stdin').mkdir()
+    errors = run_single_test(tmp_path)
+    assert len(errors) == 1
+    assert errors[0].startswith('could not run %s: %s: ' % (
+        tmp_path / 'foo.script', tmp_path / 'foo.stdin'))
+    assert sorted(x.name for x in tmp_path.iterdir()) == \
+        ['foo.script', 'foo.stdin']
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='symlinks need privileges on Windows')
+def test_cleanup_tempdir_leaves_linked_dirs_alone(tmp_path):
+    # The dirs which the tests left in the tempdir get permissions so
+    # that they can be removed, but not a dir outside of it which a
+    # symlink points to.
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    outside.chmod(0o500)
+    temp = tmp_path / 'temp'
+    (temp / 'data').mkdir(parents=True)
+    (temp / 'data' / 'link').symlink_to(outside)
+    tester = cmdspecs.CommandTester()
+    tester.tempdir = str(temp)
+    tester.cleanup_tempdir()
+    assert not temp.exists()
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o500
+
+
+def test_cleanup_tempdir_reports_dir_it_cannot_remove(monkeypatch, tmp_path,
+                                                      capsys):
+    monkeypatch.setattr(cmdspecs.shutil, 'rmtree',
+                        lambda path, ignore_errors: None)
+    tester = cmdspecs.CommandTester()
+    tester.tempdir = str(tmp_path)
+    tester.cleanup_tempdir()
+    assert capsys.readouterr().err == \
+        'cmdspecs: could not remove %s\n' % tmp_path
+
+
+windows_only = pytest.mark.skipif(sys.platform != 'win32',
+                                  reason='uses the job objects of Windows')
+
+
+class Kernel32:
+
+    '''kernel32 of cmdspecs with some of its functions replaced.'''
+
+    def __init__(self, **replaced):
+        self.real = cmdspecs.windows_kernel32()
+        self.replaced = replaced
+
+    def __getattr__(self, name):
+        if name in self.replaced:
+            return self.replaced[name]
+        return getattr(self.real, name)
+
+
+def failing(error):
+    '''Return a kernel32 function which fails with error.'''
+    def call(*args):
+        ctypes.set_last_error(error)
+        return 0
+    return call
+
+
+@windows_only
+def test_windows_group_reports_job_which_cannot_be_created(monkeypatch):
+    fake = Kernel32(CreateJobObjectW=failing(8))
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    with pytest.raises(OSError) as excinfo:
+        cmdspecs.WindowsProcessGroup([sys.executable, '-c', 'pass'])
+    assert excinfo.value.winerror == 8
+
+
+@windows_only
+def test_windows_group_closes_job_when_script_cannot_start(monkeypatch,
+                                                           tmp_path):
+    jobs = []
+    closed = []
+
+    def create(*args):
+        jobs.append(fake.real.CreateJobObjectW(*args))
+        return jobs[-1]
+
+    def close(handle):
+        closed.append(handle)
+        return fake.real.CloseHandle(handle)
+
+    fake = Kernel32(CreateJobObjectW=create, CloseHandle=close)
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    with pytest.raises(OSError):
+        cmdspecs.WindowsProcessGroup([str(tmp_path / 'missing.exe')])
+    assert jobs and closed == jobs
+
+
+@windows_only
+def test_windows_group_runs_script_which_cannot_join_job(monkeypatch):
+    # If the script can't be put in the job, it still runs, only
+    # outside the job.
+    fake = Kernel32(OpenProcess=failing(5))
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    group = cmdspecs.WindowsProcessGroup(
+        [sys.executable, '-c', 'import time; time.sleep(2)'])
+    try:
+        assert group.process_ids() == []
+        assert group.proc.wait(timeout=30) == 0
+    finally:
+        group.close()
+
+
+@windows_only
+def test_windows_group_lists_more_than_16_processes():
+    # The list of the processes in the job grows when it is too small,
+    # here for sh and the 20 sleeps which it starts.
+    sh = cmdspecs.CommandTester().find_sh()
+    group = cmdspecs.WindowsProcessGroup(
+        [sh, '-c', 'for i in $(seq 20); do sleep 60 & done; wait'])
+    try:
+        deadline = time.monotonic() + 30
+        while len(group.process_ids()) <= 20:
+            assert time.monotonic() < deadline, \
+                'only %d processes in the job' % len(group.process_ids())
+            time.sleep(0.1)
+        group.kill()
+        group.proc.wait(timeout=30)
+    finally:
+        group.close()
+
+
+@windows_only
+def test_windows_group_lists_no_processes_when_query_fails(monkeypatch):
+    fake = Kernel32(QueryInformationJobObject=failing(5))
+    monkeypatch.setattr(cmdspecs, 'windows_kernel32', lambda: fake)
+    group = cmdspecs.WindowsProcessGroup([sys.executable, '-c', 'pass'])
+    try:
+        assert group.process_ids() == []
+        assert group.proc.wait(timeout=30) == 0
+    finally:
+        group.close()
 
 
 def test_diff_puts_each_line_on_its_own_line(tmp_path):
