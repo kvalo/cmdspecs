@@ -817,14 +817,12 @@ class CommandTester:
 
     def kill_group(self, group):
         '''Kill a script with what it started and wait for it to exit.'''
-        for stop, grace in [(group.terminate, KILL_GRACE),
-                            (group.kill, None)]:
-            stop()
-            try:
-                group.proc.wait(timeout=grace)
-                break
-            except subprocess.TimeoutExpired:
-                pass
+        group.terminate()
+        try:
+            group.proc.wait(timeout=KILL_GRACE)
+        except subprocess.TimeoutExpired:
+            group.kill()
+            group.proc.wait()
         # Also kill what the script left running after it exited.
         group.kill()
 
