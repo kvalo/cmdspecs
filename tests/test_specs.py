@@ -1001,8 +1001,6 @@ def test_failing_setup_once_skips_later_dirs(tmp_path):
     assert not (tmp_path / 'two-teardown_once').exists()
 
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason='a closed pipe is no BrokenPipeError on Windows')
 def test_closed_stdout_exits_with_failed_status(tmp_path):
     # When the reader of the output goes away, as with cmdspecs | head,
     # cmdspecs exits with status 1 and without a traceback.

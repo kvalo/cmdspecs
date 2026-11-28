@@ -7,6 +7,7 @@
 import importlib.machinery
 import importlib.util
 import ctypes
+import errno
 import io
 import os
 import re
@@ -936,6 +937,57 @@ def test_internal_error_exits_with_internal_status(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert 'Traceback' in err
     assert 'cmdspecs: internal error: RuntimeError: boom\n' in err
+
+
+class FailingStream:
+
+    def __init__(self, error):
+        self.error = error
+
+    def write(self, text):
+        raise OSError(self.error, os.strerror(self.error))
+
+    def flush(self):
+        pass
+
+
+@pytest.mark.parametrize('platform, error, broken', [
+    ('win32', errno.EINVAL, True), ('linux', errno.EINVAL, False),
+    ('win32', errno.EIO, False)])
+def test_write_flushed_reports_closed_pipe_of_windows(monkeypatch, platform,
+                                                      error, broken):
+    # Windows reports a pipe whose reader has gone as EINVAL, which is
+    # a broken pipe there, but only there.
+    monkeypatch.setattr(cmdspecs.sys, 'platform', platform)
+    with pytest.raises(OSError) as excinfo:
+        cmdspecs.write_flushed(FailingStream(error), 'x')
+    assert isinstance(excinfo.value, BrokenPipeError) == broken
+    assert excinfo.value.errno == (errno.EPIPE if broken else error)
+
+
+@pytest.mark.parametrize('args, script, code, text', [
+    (['--timings'], '', None, 'Timings (in seconds):\n'),
+    (['--keep'], 'exit 1\n', cmdspecs.EXIT_FAILED, 'Test work area: ')])
+def test_run_flushes_output_before_exit(monkeypatch, tmp_path, args, script,
+                                        code, text):
+    # The last lines are flushed by cmdspecs, so that a closed stdout
+    # is reported as such and not by Python at exit.
+    spec = tmp_path / 'spec'
+    spec.mkdir()
+    make_script(spec, 'foo', script)
+    temp = tmp_path / 'temp'
+    temp.mkdir()
+    monkeypatch.setattr(cmdspecs.tempfile, 'tempdir', str(temp))
+    raw = io.BytesIO()
+    monkeypatch.setattr(cmdspecs.sys, 'stdout',
+                        io.TextIOWrapper(raw, encoding='utf-8', newline='\n'))
+    try:
+        cmdspecs.CommandTester().run(args + [str(spec)])
+    except SystemExit as e:
+        assert e.code == code
+    else:
+        assert code is None
+    assert text in raw.getvalue().decode('utf-8')
 
 
 def test_io_error_exits_with_failed_status(monkeypatch, capsys):

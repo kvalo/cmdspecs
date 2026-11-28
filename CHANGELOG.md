@@ -20,6 +20,11 @@ cmdspecs was forked.
 
 - An interrupt such as Ctrl-C right when a script started left the
   script and what it started running after cmdspecs had exited.
+- When the reader of the output went away, as with `cmdspecs | head`,
+  cmdspecs printed an "Invalid argument" error and exited with 120
+  on Windows. Now it exits with 1 without messages, as on other
+  systems. On every system, a pipe closed just before the work area
+  or the timings were shown gave a Python error and exit status 120.
 
 ## [0.35.0] - 2026-11-23
 

@@ -108,6 +108,22 @@ MSYS_SIGNALS = {1: 'SIGHUP', 2: 'SIGINT', 3: 'SIGQUIT', 4: 'SIGILL',
                 11: 'SIGSEGV', 13: 'SIGPIPE', 14: 'SIGALRM', 15: 'SIGTERM'}
 
 
+def write_flushed(stream, text):
+    '''Write text to stream and flush it.
+
+    On Windows a write to a pipe whose reader has gone fails with
+    EINVAL, not EPIPE, so raise BrokenPipeError for it as elsewhere.
+
+    '''
+    try:
+        stream.write(text)
+        stream.flush()
+    except OSError as e:
+        if sys.platform == 'win32' and e.errno == errno.EINVAL:
+            raise BrokenPipeError(errno.EPIPE, e.strerror) from e
+        raise
+
+
 def describe_exit(code):
     '''Return exit code as text, with the signal name if it looks like one.'''
     if sys.platform == 'win32':
@@ -405,8 +421,7 @@ class Reporter:
         return '\x1b[%sm%s\x1b[0m' % (';'.join(codes), text)
 
     def write(self, text, *codes):
-        self.output.write(self.paint(text, *codes))
-        self.output.flush()
+        write_flushed(self.output, self.paint(text, *codes))
         if '\n' in text:
             self.line_len = len(text) - text.rindex('\n') - 1
         else:
@@ -646,7 +661,7 @@ class CommandTester:
                              elapsed, len(self.errors))
 
         if keep_tempdir:
-            self.output.write('Test work area: %s\n' % self.tempdir)
+            write_flushed(self.output, 'Test work area: %s\n' % self.tempdir)
 
         if args.timings:
             self.report_timings(elapsed)
@@ -1011,15 +1026,17 @@ class CommandTester:
 
     def report_timings(self, elapsed):
 
-        def report(key, title, total):
-            self.output.write('  %s: %.1f s\n' % (title, total))
-            for secs, script in sorted(self.timings.get(key, [])):
-                self.output.write('    %4.1f %s\n' % (secs, script))
+        lines = ['Timings (in seconds):\n']
 
-        self.output.write('Timings (in seconds):\n')
+        def report(key, title, total):
+            lines.append('  %s: %.1f s\n' % (title, total))
+            for secs, script in sorted(self.timings.get(key, [])):
+                lines.append('    %4.1f %s\n' % (secs, script))
+
         report(ALL_TESTS, 'whole test suite', elapsed)
         for name, secs in sorted(self.test_timings.items()):
             report(name, name, secs)
+        write_flushed(self.output, ''.join(lines))
 
 
 def main():
